@@ -63,7 +63,10 @@ export default function AdminPage() {
   }, [authed]);
 
   useSocket({
-    connect:    () => setConnected(true),
+    connect: () => {
+      setConnected(true);
+      if (authed) api.orders.list().then(setOrders).catch(console.error);
+    },
     disconnect: () => setConnected(false),
     'new-order': (data: unknown) => {
       const order = data as Order;
