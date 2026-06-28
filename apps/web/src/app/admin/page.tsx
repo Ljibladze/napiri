@@ -9,7 +9,7 @@ import { WaveBackground } from '@/components/layout/WaveBackground';
 import { OrderCard } from '@/components/admin/OrderCard';
 import { STATUS_LABEL } from '@/lib/utils';
 
-const ADMIN_PASSWORD = 'napiri2024';
+const ADMIN_PASSWORD = 'juvaxa123';
 
 type FilterTab = 'all' | OrderStatus;
 
