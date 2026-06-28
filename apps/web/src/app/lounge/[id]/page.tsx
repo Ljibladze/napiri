@@ -6,15 +6,18 @@ import type { RestaurantSummary, RestaurantDetail, Order, PaymentMethod } from '
 import { api } from '@/lib/api';
 import { useCart } from '@/hooks/useCart';
 import { useLang } from '@/contexts/LanguageContext';
+import { useSocket } from '@/hooks/useSocket';
 import { WaveBackground } from '@/components/layout/WaveBackground';
 import { RestaurantGrid } from '@/components/lounge/RestaurantGrid';
 import { MenuView } from '@/components/lounge/MenuView';
 import { CartSheet } from '@/components/lounge/CartSheet';
 import { OrderSuccess } from '@/components/lounge/OrderSuccess';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, STATUS_LABEL } from '@/lib/utils';
 
 type View = 'restaurants' | 'menu' | 'success';
+
+const DONE_STATUSES = ['delivered', 'cancelled'] as const;
 
 export default function LoungePage() {
   const params = useParams();
@@ -31,6 +34,7 @@ export default function LoungePage() {
   const [error, setError] = useState<string | null>(null);
 
   const cart = useCart();
+  const orderKey = `napiri_order_${loungeId}`;
 
   useEffect(() => {
     api.restaurants
@@ -39,28 +43,40 @@ export default function LoungePage() {
       .catch(() => setError(t('error_connect')))
       .finally(() => setLoadingRestaurants(false));
 
-    const key = `napiri_order_${loungeId}`;
-    const saved = localStorage.getItem(key);
+    const saved = localStorage.getItem(orderKey);
     if (saved) {
       try {
         const { id, ts } = JSON.parse(saved);
-        const expired = Date.now() - ts > 12 * 60 * 60 * 1000;
-        if (expired) { localStorage.removeItem(key); }
-        else {
+        if (Date.now() - ts > 12 * 60 * 60 * 1000) {
+          localStorage.removeItem(orderKey);
+        } else {
           api.orders.get(id)
             .then((order) => {
-              if (order.status === 'delivered' || order.status === 'cancelled') {
-                localStorage.removeItem(key);
+              if (DONE_STATUSES.includes(order.status as any)) {
+                localStorage.removeItem(orderKey);
               } else {
                 setPlacedOrder(order);
                 setView('success');
               }
             })
-            .catch(() => localStorage.removeItem(key));
+            .catch(() => localStorage.removeItem(orderKey));
         }
-      } catch { localStorage.removeItem(key); }
+      } catch { localStorage.removeItem(orderKey); }
     }
   }, []);
+
+  useSocket({
+    'order-updated': (data: unknown) => {
+      const updated = data as Order;
+      if (!placedOrder || updated.id !== placedOrder.id) return;
+      if (DONE_STATUSES.includes(updated.status as any)) {
+        setPlacedOrder(updated);
+        localStorage.removeItem(orderKey);
+      } else {
+        setPlacedOrder(updated);
+      }
+    },
+  });
 
   const handleSelectRestaurant = useCallback(
     async (summary: RestaurantSummary) => {
@@ -98,15 +114,17 @@ export default function LoungePage() {
     setShowCart(false);
     setPlacedOrder(order);
     setView('success');
-    localStorage.setItem(`napiri_order_${loungeId}`, JSON.stringify({ id: order.id, ts: Date.now() }));
+    localStorage.setItem(orderKey, JSON.stringify({ id: order.id, ts: Date.now() }));
   }
 
   function handleNewOrder() {
-    localStorage.removeItem(`napiri_order_${loungeId}`);
-    setPlacedOrder(null);
-    setSelectedRestaurant(null);
     setView('restaurants');
   }
+
+  const showOrderBubble =
+    placedOrder !== null &&
+    !DONE_STATUSES.includes(placedOrder.status as any) &&
+    view !== 'success';
 
   return (
     <main className="relative flex flex-col min-h-dvh">
@@ -209,6 +227,23 @@ export default function LoungePage() {
           <OrderSuccess order={placedOrder} onNewOrder={handleNewOrder} />
         )}
       </div>
+
+      {/* ── Active order floating bubble ─────────────── */}
+      {showOrderBubble && (
+        <button
+          onClick={() => setView('success')}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-[0_8px_32px_rgba(0,180,216,0.35)] animate-fade-in bg-ocean-600/90 backdrop-blur-xl border border-ocean-400/30 active:scale-95 transition-all"
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-300 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-300" />
+          </span>
+          <span className="text-white font-bold text-sm">
+            შეკვეთა · {STATUS_LABEL[placedOrder.status]}
+          </span>
+          <span className="text-sky-200 text-xs">›</span>
+        </button>
+      )}
 
       {showCart && cart.hasItems && selectedRestaurant && (
         <CartSheet
