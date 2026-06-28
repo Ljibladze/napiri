@@ -39,11 +39,26 @@ export default function LoungePage() {
       .catch(() => setError(t('error_connect')))
       .finally(() => setLoadingRestaurants(false));
 
-    const savedId = localStorage.getItem(`napiri_order_${loungeId}`);
-    if (savedId) {
-      api.orders.get(savedId)
-        .then((order) => { setPlacedOrder(order); setView('success'); })
-        .catch(() => localStorage.removeItem(`napiri_order_${loungeId}`));
+    const key = `napiri_order_${loungeId}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        const { id, ts } = JSON.parse(saved);
+        const expired = Date.now() - ts > 12 * 60 * 60 * 1000;
+        if (expired) { localStorage.removeItem(key); }
+        else {
+          api.orders.get(id)
+            .then((order) => {
+              if (order.status === 'delivered' || order.status === 'cancelled') {
+                localStorage.removeItem(key);
+              } else {
+                setPlacedOrder(order);
+                setView('success');
+              }
+            })
+            .catch(() => localStorage.removeItem(key));
+        }
+      } catch { localStorage.removeItem(key); }
     }
   }, []);
 
@@ -83,7 +98,7 @@ export default function LoungePage() {
     setShowCart(false);
     setPlacedOrder(order);
     setView('success');
-    localStorage.setItem(`napiri_order_${loungeId}`, order.id);
+    localStorage.setItem(`napiri_order_${loungeId}`, JSON.stringify({ id: order.id, ts: Date.now() }));
   }
 
   function handleNewOrder() {
