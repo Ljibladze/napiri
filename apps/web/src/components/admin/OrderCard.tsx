@@ -1,17 +1,25 @@
 'use client';
 
+import { useState } from 'react';
 import type { Order, OrderStatus } from '@/types';
 import { formatPrice, formatRelativeTime, NEXT_STATUS, PAYMENT_ICON, PAYMENT_LABEL, STATUS_LABEL } from '@/lib/utils';
 
 interface OrderCardProps {
   order: Order;
-  onStatusChange: (id: string, status: OrderStatus) => void;
+  onStatusChange: (id: string, status: OrderStatus) => Promise<void>;
   isNew?: boolean;
 }
 
 export function OrderCard({ order, onStatusChange, isNew = false }: OrderCardProps) {
+  const [loading, setLoading] = useState(false);
   const next = NEXT_STATUS[order.status];
   const canCancel = order.status !== 'delivered' && order.status !== 'cancelled';
+
+  async function handleChange(status: OrderStatus) {
+    setLoading(true);
+    try { await onStatusChange(order.id, status); }
+    finally { setLoading(false); }
+  }
 
   return (
     <div className={[
@@ -96,19 +104,27 @@ export function OrderCard({ order, onStatusChange, isNew = false }: OrderCardPro
 
           {next && (
             <button
-              onClick={() => onStatusChange(order.id, next.status)}
-              className="px-3.5 py-2 rounded-xl text-xs font-black text-white transition-all active:scale-95 bg-btn-ocean shadow-ocean"
+              onClick={() => handleChange(next.status)}
+              disabled={loading}
+              className="px-3.5 py-2 rounded-xl text-xs font-black text-white transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed bg-btn-ocean shadow-ocean flex items-center gap-1.5"
             >
-              {next.label} ›
+              {loading ? (
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+              ) : (
+                <>{next.label} ›</>
+              )}
             </button>
           )}
 
           {canCancel && (
             <button
-              onClick={() => onStatusChange(order.id, 'cancelled')}
-              className="w-9 h-9 rounded-xl text-sm flex items-center justify-center transition-all active:scale-90 font-bold bg-red-500/15 border border-red-500/25 text-red-400"
+              onClick={() => handleChange('cancelled')}
+              disabled={loading}
+              className="w-9 h-9 rounded-xl text-sm flex items-center justify-center transition-all active:scale-90 font-bold disabled:opacity-60 disabled:cursor-not-allowed bg-red-500/15 border border-red-500/25 text-red-400"
             >
-              ✕
+              {loading ? (
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-red-400/30 border-t-red-400 animate-spin" />
+              ) : '✕'}
             </button>
           )}
         </div>
