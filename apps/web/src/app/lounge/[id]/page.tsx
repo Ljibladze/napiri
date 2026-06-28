@@ -38,6 +38,13 @@ export default function LoungePage() {
       .then(setRestaurants)
       .catch(() => setError(t('error_connect')))
       .finally(() => setLoadingRestaurants(false));
+
+    const savedId = localStorage.getItem(`napiri_order_${loungeId}`);
+    if (savedId) {
+      api.orders.get(savedId)
+        .then((order) => { setPlacedOrder(order); setView('success'); })
+        .catch(() => localStorage.removeItem(`napiri_order_${loungeId}`));
+    }
   }, []);
 
   const handleSelectRestaurant = useCallback(
@@ -76,9 +83,11 @@ export default function LoungePage() {
     setShowCart(false);
     setPlacedOrder(order);
     setView('success');
+    localStorage.setItem(`napiri_order_${loungeId}`, order.id);
   }
 
   function handleNewOrder() {
+    localStorage.removeItem(`napiri_order_${loungeId}`);
     setPlacedOrder(null);
     setSelectedRestaurant(null);
     setView('restaurants');
