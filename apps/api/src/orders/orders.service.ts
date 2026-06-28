@@ -27,7 +27,7 @@ export class OrdersService {
         notes: dto.notes ?? null,
         items: {
           create: dto.items.map((item) => ({
-            id: item.id,
+            id: `${id}-${uuidv4().slice(0, 6)}`,
             name: item.name,
             price: item.price,
             quantity: item.quantity,
