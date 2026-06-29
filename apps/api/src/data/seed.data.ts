@@ -21,7 +21,7 @@ export interface SeedRestaurant {
 
 const JAVAKHA_BURGER: SeedMenuItem = {
   id: 'special-burger',
-  name: 'ჯავახას ფაჩრიანი ბურგერი',
+  name: 'ჯავახას ბურგერი',
   description: 'სპეც ბურგერი — 5 გრამი ჯავახას ფაჩარი, 200გ საქონელი, ფაჩი, ბეკონი, ედამი, BBQ სოუსი, კარამელ ხახვი',
   price: 32,
   emoji: '🍔',
