@@ -61,5 +61,4 @@ export const NEXT_STATUS: Partial<Record<OrderStatus, { status: OrderStatus; lab
   pending: { status: 'confirmed', label: 'დადასტურება' },
   confirmed: { status: 'preparing', label: 'მზარეულთან' },
   preparing: { status: 'delivering', label: 'გზაშია' },
-  delivering: { status: 'delivered', label: 'ჩაბარდა' },
 };

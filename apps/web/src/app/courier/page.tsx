@@ -28,9 +28,15 @@ function useElapsed(createdAt: string) {
   return elapsed;
 }
 
-function OrderRow({ order, isNew }: { order: Order; isNew: boolean }) {
+function OrderRow({ order, isNew, onDeliver }: { order: Order; isNew: boolean; onDeliver: (id: string) => Promise<void> }) {
   const elapsed = useElapsed(order.createdAt);
   const isActive = ACTIVE.includes(order.status as any);
+  const [delivering, setDelivering] = useState(false);
+
+  async function handleDeliver() {
+    setDelivering(true);
+    try { await onDeliver(order.id); } finally { setDelivering(false); }
+  }
 
   return (
     <div className={[
@@ -82,9 +88,22 @@ function OrderRow({ order, isNew }: { order: Order; isNew: boolean }) {
         )}
       </div>
 
-      <div className="px-4 py-2.5 bg-black/20 flex items-center justify-between border-t border-white/[0.05]">
-        <span className="text-white/35 text-xs">სულ</span>
-        <span className="text-white font-black text-lg">{formatPrice(order.total)}</span>
+      <div className="px-4 py-2.5 bg-black/20 flex items-center justify-between gap-3 border-t border-white/[0.05]">
+        <div>
+          <span className="text-white/35 text-xs">სულ </span>
+          <span className="text-white font-black text-lg">{formatPrice(order.total)}</span>
+        </div>
+        {order.status === 'delivering' && (
+          <button
+            onClick={handleDeliver}
+            disabled={delivering}
+            className="px-4 py-2 rounded-xl text-xs font-black text-white transition-all active:scale-95 disabled:opacity-60 flex items-center gap-1.5 bg-emerald-600/80 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.2)]"
+          >
+            {delivering
+              ? <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+              : '✓ ჩავბარე'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -262,7 +281,12 @@ export default function CourierPage() {
         )}
 
         {active.map((order) => (
-          <OrderRow key={order.id} order={order} isNew={newIds.has(order.id)} />
+          <OrderRow
+            key={order.id}
+            order={order}
+            isNew={newIds.has(order.id)}
+            onDeliver={async (id) => { await api.orders.updateStatus(id, 'delivered'); }}
+          />
         ))}
       </div>
     </main>
