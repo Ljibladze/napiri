@@ -10,7 +10,7 @@ import { OrderCard } from '@/components/admin/OrderCard';
 import { STATUS_LABEL } from '@/lib/utils';
 
 type FilterTab = 'all' | OrderStatus;
-type AdminTab = 'orders' | 'couriers';
+type AdminTab = 'orders' | 'couriers' | 'stats';
 
 const FILTER_TABS: { key: FilterTab; label: string; emoji: string }[] = [
   { key: 'all',        label: 'ყველა',              emoji: '📋' },
@@ -148,6 +148,93 @@ function CouriersTab({ user }: { user: any }) {
                 {saving ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : 'შენახვა'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Stats Tab ─────────────────────────────────────────────────────────────────
+
+const STATUS_GE: Record<string, string> = {
+  pending: 'მოლოდინი', confirmed: 'დადასტურდა', preparing: 'მზადდება',
+  delivering: 'გზაშია', delivered: 'ჩაბარდა', cancelled: 'გაუქმდა',
+};
+
+function StatsTab({ user }: { user: any }) {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const rId = user.role === 'restaurantAdmin' ? user.restaurantId : undefined;
+    api.stats.get().then((data) => {
+      if (rId) {
+        const rStat = data.byRestaurant?.find((r: any) => r.id === rId);
+        const rOrders = data.recent?.filter((o: any) => o.restaurantId === rId) ?? [];
+        const byStatus = rOrders.reduce<Record<string, number>>((acc: Record<string, number>, o: any) => {
+          acc[o.status] = (acc[o.status] ?? 0) + 1;
+          return acc;
+        }, {});
+        setStats({
+          totalOrders: rStat?.orders ?? 0,
+          totalRevenue: rStat?.revenue ?? 0,
+          byStatus,
+          byCourier: data.byCourier?.filter((c: any) => c.restaurantId === rId || c.byRestaurant?.some((r: any) => r.id === rId)) ?? [],
+        });
+      } else {
+        setStats(data);
+      }
+    }).catch(console.error).finally(() => setLoading(false));
+  }, [user]);
+
+  if (loading) return <div className="flex justify-center py-16"><span className="w-6 h-6 rounded-full border-2 border-white/15 border-t-white/50 animate-spin" /></div>;
+  if (!stats) return null;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4 text-center">
+          <div className="text-2xl mb-1">📦</div>
+          <div className="text-2xl font-black text-sky-300">{stats.totalOrders}</div>
+          <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">სულ შეკვეთა</div>
+        </div>
+        <div className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4 text-center">
+          <div className="text-2xl mb-1">💰</div>
+          <div className="text-2xl font-black text-emerald-300">₾{(stats.totalRevenue ?? 0).toFixed(0)}</div>
+          <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">შემოსავალი</div>
+        </div>
+      </div>
+
+      {stats.byStatus && Object.keys(stats.byStatus).length > 0 && (
+        <div>
+          <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-3">სტატუსი</p>
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(stats.byStatus as Record<string, number>).map(([st, cnt]) => (
+              <div key={st} className="bg-white/[0.05] border border-white/[0.08] rounded-xl p-2.5 text-center">
+                <div className="text-white font-black text-lg">{cnt}</div>
+                <div className="text-white/35 text-[10px]">{STATUS_GE[st] ?? st}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {stats.byCourier?.length > 0 && (
+        <div>
+          <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-3">კურიერები</p>
+          <div className="space-y-2">
+            {stats.byCourier.map((c: any) => {
+              const myCount = c.byRestaurant?.find((r: any) => r.id === user.restaurantId)?.count ?? c.deliveries;
+              return (
+                <div key={c.courierId} className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-3.5 flex items-center gap-3">
+                  <span className="text-xl">🏍️</span>
+                  <span className="text-white font-bold flex-1">{c.username}</span>
+                  <span className="text-sky-300 font-black">{myCount}</span>
+                  <span className="text-white/30 text-xs">ჩაბარება</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -344,11 +431,19 @@ export default function AdminPage() {
           className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'couriers' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
           🏍️ კურიერები
         </button>
+        <button onClick={() => setTab('stats')}
+          className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'stats' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          📊 სტატ.
+        </button>
       </div>
 
       {tab === 'couriers' ? (
         <div className="relative z-10 flex-1 px-4 pb-10 max-w-4xl mx-auto w-full pt-4">
           <CouriersTab user={currentUser} />
+        </div>
+      ) : tab === 'stats' ? (
+        <div className="relative z-10 flex-1 px-4 pb-10 max-w-4xl mx-auto w-full pt-4">
+          <StatsTab user={currentUser} />
         </div>
       ) : (
         <>
