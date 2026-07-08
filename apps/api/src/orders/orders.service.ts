@@ -58,16 +58,65 @@ export class OrdersService {
     return this.toEntity(order);
   }
 
-  async updateStatus(id: string, status: OrderStatus): Promise<Order> {
+  async findByRestaurant(restaurantId: string): Promise<Order[]> {
+    const orders = await this.prisma.order.findMany({
+      where: { restaurantId },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return orders.map((o) => this.toEntity(o));
+  }
+
+  async findByCourier(courierId: string): Promise<Order[]> {
+    const orders = await this.prisma.order.findMany({
+      where: { courierId, status: 'delivered' },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return orders.map((o) => this.toEntity(o));
+  }
+
+  async updateStatus(id: string, status: OrderStatus, courierId?: string): Promise<Order> {
     const exists = await this.prisma.order.findUnique({ where: { id } });
     if (!exists) throw new NotFoundException(`Order "${id}" not found`);
 
+    const data: any = { status, updatedAt: new Date() };
+    if (status === 'delivered' && courierId) data.courierId = courierId;
+
     const order = await this.prisma.order.update({
       where: { id },
-      data: { status, updatedAt: new Date() },
+      data,
       include: { items: true },
     });
     return this.toEntity(order);
+  }
+
+  async courierStats(restaurantId?: string) {
+    const where: any = { status: 'delivered', courierId: { not: null } };
+    if (restaurantId) where.restaurantId = restaurantId;
+
+    const orders = await this.prisma.order.findMany({ where });
+    const users = await this.prisma.user.findMany({ where: { role: 'courier' } });
+    const restaurants = await this.prisma.restaurant.findMany();
+
+    return users.map((u) => {
+      const myOrders = orders.filter((o) => o.courierId === u.id);
+      const byRestaurant = restaurants.map((r) => ({
+        id: r.id,
+        name: r.name,
+        emoji: r.emoji,
+        count: myOrders.filter((o) => o.restaurantId === r.id).length,
+      })).filter((r) => r.count > 0);
+      const revenue = myOrders.reduce((s, o) => s + o.total, 0);
+      return {
+        courierId: u.id,
+        username: u.username,
+        restaurantId: u.restaurantId,
+        deliveries: myOrders.length,
+        revenue,
+        byRestaurant,
+      };
+    }).sort((a, b) => b.deliveries - a.deliveries);
   }
 
   private toEntity(raw: any): Order {
@@ -81,6 +130,7 @@ export class OrdersService {
       paymentMethod: raw.paymentMethod as any,
       status: raw.status as OrderStatus,
       notes: raw.notes ?? undefined,
+      courierId: raw.courierId ?? undefined,
       createdAt: raw.createdAt instanceof Date ? raw.createdAt.toISOString() : raw.createdAt,
       updatedAt: raw.updatedAt instanceof Date ? raw.updatedAt.toISOString() : raw.updatedAt,
       items: raw.items.map((i: any) => ({

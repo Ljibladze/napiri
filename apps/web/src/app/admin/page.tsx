@@ -3,15 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { playNewOrder } from '@/lib/sounds';
 import type { Order, OrderStatus } from '@/types';
-import { api } from '@/lib/api';
+import { api, saveSession, clearSession, getUser, getToken } from '@/lib/api';
 import { useSocket } from '@/hooks/useSocket';
 import { WaveBackground } from '@/components/layout/WaveBackground';
 import { OrderCard } from '@/components/admin/OrderCard';
 import { STATUS_LABEL } from '@/lib/utils';
 
-const ADMIN_PASSWORD = 'juvaxa123';
-
 type FilterTab = 'all' | OrderStatus;
+type AdminTab = 'orders' | 'couriers';
 
 const FILTER_TABS: { key: FilterTab; label: string; emoji: string }[] = [
   { key: 'all',        label: 'ყველა',              emoji: '📋' },
@@ -22,54 +21,216 @@ const FILTER_TABS: { key: FilterTab; label: string; emoji: string }[] = [
   { key: 'delivered',  label: STATUS_LABEL.delivered, emoji: '🎉' },
 ];
 
-export default function AdminPage() {
-  const [authed,    setAuthed]    = useState(false);
-  const [password,  setPassword]  = useState('');
-  const [authError, setAuthError] = useState(false);
-  const [focused,   setFocused]   = useState(false);
+// ── Couriers Tab ──────────────────────────────────────────────────────────────
 
-  const [orders,       setOrders]       = useState<Order[]>([]);
-  const [newOrderIds,  setNewOrderIds]  = useState<Set<string>>(new Set());
-  const [filter,       setFilter]       = useState<FilterTab>('all');
-  const [loading,      setLoading]      = useState(true);
-  const [connected,    setConnected]    = useState(false);
+function CouriersTab({ user }: { user: any }) {
+  const [couriers, setCouriers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({ username: '', password: '' });
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [stats, setStats] = useState<any[]>([]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (sessionStorage.getItem('napiri_admin') === ADMIN_PASSWORD) setAuthed(true);
+    api.users.list().then(setCouriers).catch(console.error).finally(() => setLoading(false));
+    const rId = user.role === 'restaurantAdmin' ? user.restaurantId : undefined;
+    api.orders.courierStats(rId).then(setStats).catch(console.error);
+  }, []);
+
+  function getStats(courierId: string) {
+    return stats.find((s) => s.courierId === courierId);
+  }
+
+  async function handleCreate() {
+    if (!form.username || !form.password) return;
+    setSaving(true);
+    try {
+      const created = await api.users.create({ username: form.username, password: form.password, role: 'courier' });
+      setCouriers((p) => [created, ...p]);
+      setModal(false);
+      setForm({ username: '', password: '' });
+    } catch (e: any) { alert(e.message ?? 'შეცდომა'); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('წაიშალოს?')) return;
+    setDeletingId(id);
+    try {
+      await api.users.remove(id);
+      setCouriers((p) => p.filter((c) => c.id !== id));
+    } catch (e: any) { alert(e.message ?? 'შეცდომა'); }
+    finally { setDeletingId(null); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-white font-black">კურიერები</h3>
+        <button onClick={() => setModal(true)}
+          className="px-4 py-2 rounded-xl text-sm font-bold bg-ocean-600/70 border border-ocean-500/40 text-white active:scale-95 transition-all">
+          + კურიერის დამატება
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <span className="w-6 h-6 rounded-full border-2 border-white/15 border-t-white/50 animate-spin" />
+        </div>
+      ) : couriers.length === 0 ? (
+        <div className="text-center py-12 text-white/30 text-sm">კურიერი არ დარეგისტრირებულა</div>
+      ) : (
+        <div className="space-y-3">
+          {couriers.map((c) => {
+            const s = getStats(c.id);
+            return (
+              <div key={c.id} className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-ocean-600/20 border border-ocean-500/30 flex items-center justify-center text-xl">🏍️</div>
+                    <div>
+                      <p className="text-white font-bold">{c.username}</p>
+                      <p className="text-white/35 text-xs mt-0.5">
+                        {s ? `${s.deliveries} ჩაბარება · ₾${s.revenue.toFixed(0)}` : 'ჩაბარება: 0'}
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={() => handleDelete(c.id)} disabled={deletingId === c.id}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-600/30 border border-red-500/20 text-red-300 active:scale-95 transition-all disabled:opacity-50">
+                    {deletingId === c.id ? '...' : '🗑️'}
+                  </button>
+                </div>
+
+                {s?.byRestaurant?.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-white/[0.05] flex flex-wrap gap-2">
+                    {s.byRestaurant.map((r: any) => (
+                      <span key={r.id} className="text-xs bg-white/[0.06] border border-white/[0.08] rounded-lg px-2.5 py-1 text-white/60">
+                        {r.emoji} {r.name}: <span className="text-sky-300 font-bold">{r.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#0d1b2a] border border-white/[0.12] rounded-3xl p-6 space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-black text-lg">+ კურიერის დამატება</h3>
+              <button onClick={() => setModal(false)} className="text-white/40 hover:text-white text-xl transition-colors">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">მომხმარებელი</label>
+                <input value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                  className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
+                  placeholder="courier2" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">პაროლი</label>
+                <input type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
+                  placeholder="••••••••" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setModal(false)}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-white/[0.06] border border-white/[0.10] text-white/70 active:scale-95 transition-all">
+                გაუქმება
+              </button>
+              <button onClick={handleCreate} disabled={saving}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-ocean-600/70 border border-ocean-500/40 text-white active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                {saving ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : 'შენახვა'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+export default function AdminPage() {
+  const [authed, setAuthed] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [focused, setFocused] = useState<'user' | 'pass' | null>(null);
+
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<FilterTab>('all');
+  const [loading, setLoading] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [tab, setTab] = useState<AdminTab>('orders');
+
+  useEffect(() => {
+    const token = getToken();
+    const user = getUser();
+    if (token && user && (user.role === 'restaurantAdmin' || user.role === 'superAdmin')) {
+      setCurrentUser(user);
+      setAuthed(true);
     }
   }, []);
 
-  function handleLogin() {
-    if (password === ADMIN_PASSWORD) {
-      sessionStorage.setItem('napiri_admin', password);
+  async function handleLogin() {
+    if (!username || !password) return;
+    setAuthLoading(true);
+    setAuthError(false);
+    try {
+      const res = await api.auth.login(username, password);
+      if (res.user.role !== 'restaurantAdmin' && res.user.role !== 'superAdmin') {
+        setAuthError(true);
+        return;
+      }
+      saveSession(res.token, res.user);
+      setCurrentUser(res.user);
       setAuthed(true);
-      setAuthError(false);
-    } else {
+    } catch {
       setAuthError(true);
+    } finally {
+      setAuthLoading(false);
     }
   }
 
   function handleLogout() {
-    sessionStorage.removeItem('napiri_admin');
+    clearSession();
     setAuthed(false);
+    setCurrentUser(null);
     setOrders([]);
     setLoading(true);
   }
 
+  const loadOrders = useCallback(async () => {
+    if (!currentUser) return;
+    const rId = currentUser.role === 'restaurantAdmin' ? currentUser.restaurantId : undefined;
+    const data = await api.orders.list(rId);
+    setOrders(data);
+    setLoading(false);
+  }, [currentUser]);
+
   useEffect(() => {
-    if (!authed) return;
-    api.orders.list().then(setOrders).catch(console.error).finally(() => setLoading(false));
-  }, [authed]);
+    if (authed && currentUser) loadOrders();
+  }, [authed, currentUser]);
 
   useSocket({
     connect: () => {
       setConnected(true);
-      if (authed) api.orders.list().then(setOrders).catch(console.error);
+      if (authed && currentUser) loadOrders();
     },
     disconnect: () => setConnected(false),
     'new-order': (data: unknown) => {
       const order = data as Order;
+      if (currentUser?.role === 'restaurantAdmin' && order.restaurantId !== currentUser.restaurantId) return;
       setOrders((prev) => [order, ...prev]);
       setNewOrderIds((prev) => new Set([...prev, order.id]));
       setTimeout(() => {
@@ -98,8 +259,6 @@ export default function AdminPage() {
       <main className="relative min-h-dvh flex items-center justify-center px-5">
         <WaveBackground />
         <div className="relative z-10 w-full max-w-xs animate-fade-in">
-
-          {/* Brand */}
           <div className="text-center mb-8">
             <div className="relative inline-flex items-center justify-center mb-5">
               <div className="absolute inset-0 rounded-full bg-ocean-600/30 blur-3xl scale-[2.2]" />
@@ -109,39 +268,31 @@ export default function AdminPage() {
             <p className="text-white/35 text-xs font-semibold tracking-[0.25em] uppercase mt-2">Admin Panel</p>
           </div>
 
-          {/* Login card */}
-          <div className="admin-card rounded-3xl p-6 space-y-4">
-            <p className="text-white/50 text-sm text-center">შეიყვანეთ ადმინის პაროლი</p>
-
-            <div className={[
-              'relative rounded-2xl transition-all duration-300 overflow-hidden bg-white/[0.05]',
-              focused
-                ? 'border-2 border-ocean-600/[0.7] shadow-[0_0_0_4px_rgba(0,180,216,0.12)]'
-                : authError
-                ? 'border-2 border-red-500/50'
-                : 'border-2 border-white/[0.08]',
-            ].join(' ')}>
+          <div className="admin-card rounded-3xl p-6 space-y-3">
+            <div className={`relative rounded-2xl transition-all duration-300 overflow-hidden bg-white/[0.05] ${focused === 'user' ? 'border-2 border-ocean-600/[0.7] shadow-[0_0_0_4px_rgba(0,180,216,0.12)]' : 'border-2 border-white/[0.08]'}`}>
               <input
-                type="password"
-                value={password}
+                type="text" value={username} placeholder="მომხმარებელი"
+                onChange={(e) => { setUsername(e.target.value); setAuthError(false); }}
+                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                onFocus={() => setFocused('user')} onBlur={() => setFocused(null)}
+                className="w-full bg-transparent px-5 py-4 text-white placeholder-white/20 text-base focus:outline-none"
+              />
+            </div>
+            <div className={`relative rounded-2xl transition-all duration-300 overflow-hidden bg-white/[0.05] ${focused === 'pass' ? 'border-2 border-ocean-600/[0.7] shadow-[0_0_0_4px_rgba(0,180,216,0.12)]' : authError ? 'border-2 border-red-500/50' : 'border-2 border-white/[0.08]'}`}>
+              <input
+                type="password" value={password} placeholder="• • • • • • • •"
                 onChange={(e) => { setPassword(e.target.value); setAuthError(false); }}
                 onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                placeholder="• • • • • • • •"
+                onFocus={() => setFocused('pass')} onBlur={() => setFocused(null)}
                 className="w-full bg-transparent px-5 py-4 text-white placeholder-white/20 text-center text-xl tracking-widest focus:outline-none"
               />
             </div>
 
-            {authError && (
-              <p className="text-red-400 text-xs text-center animate-fade-in font-medium">❌ არასწორი პაროლი</p>
-            )}
+            {authError && <p className="text-red-400 text-xs text-center font-medium">❌ არასწორი მომხმარებელი ან პაროლი</p>}
 
-            <button
-              onClick={handleLogin}
-              className="w-full py-4 rounded-2xl font-black text-white text-base transition-all active:scale-[0.97] bg-btn-sand shadow-sand"
-            >
-              შესვლა
+            <button onClick={handleLogin} disabled={authLoading}
+              className="w-full py-4 rounded-2xl font-black text-white text-base transition-all active:scale-[0.97] bg-btn-sand shadow-sand disabled:opacity-60 flex items-center justify-center gap-2">
+              {authLoading ? <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : 'შესვლა'}
             </button>
           </div>
         </div>
@@ -154,7 +305,6 @@ export default function AdminPage() {
     <main className="relative min-h-dvh flex flex-col">
       <WaveBackground />
 
-      {/* ── Header ──────────────────────────────────────── */}
       <header className="relative z-20 px-4 pt-4 pb-3 sticky top-0 header-blur">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -162,120 +312,111 @@ export default function AdminPage() {
             <div>
               <h1 className="font-black text-xl leading-tight gradient-text">ნაპირი</h1>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={[
-                  'w-1.5 h-1.5 rounded-full transition-colors',
-                  connected ? 'bg-green-400 dot-live' : 'bg-red-400',
-                ].join(' ')} />
+                <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400 dot-live' : 'bg-red-400'}`} />
                 <span className="text-white/35 text-[11px] font-medium">
-                  {connected ? 'Live · ქობულეთი' : 'კავშირი ეწყვეტა...'}
+                  {connected ? `Live · ${currentUser?.username}` : 'კავშირი ეწყვეტა...'}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {pendingCount > 0 && (
+          <div className="flex items-center gap-2">
+            {pendingCount > 0 && tab === 'orders' && (
               <span className="text-xs font-black px-3 py-1.5 rounded-full text-white animate-pulse bg-gradient-to-br from-amber-500 to-amber-600 shadow-[0_4px_16px_rgba(245,158,11,0.5)]">
                 {pendingCount} ახალი 🔔
               </span>
             )}
-            <button
-              onClick={handleLogout}
-              className="text-white/30 hover:text-white/60 text-sm transition-colors px-3 py-1.5 rounded-xl font-medium bg-white/[0.05]"
-            >
+            <button onClick={handleLogout}
+              className="text-white/30 hover:text-white/60 text-sm transition-colors px-3 py-1.5 rounded-xl font-medium bg-white/[0.05]">
               გამოსვლა
             </button>
           </div>
         </div>
       </header>
 
-      {/* ── Stats ────────────────────────────────────────── */}
-      <div className="relative z-10 px-4 pt-5 pb-3 max-w-4xl mx-auto w-full">
-        <div className="grid grid-cols-3 gap-3">
-          <div className="stat-pending rounded-2xl p-3.5 text-center">
-            <div className="text-xl mb-1">🕐</div>
-            <div className="text-3xl font-black text-amber-300">{pendingCount}</div>
-            <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">მოლოდინი</div>
-          </div>
-          <div className="stat-active rounded-2xl p-3.5 text-center">
-            <div className="text-xl mb-1">⚡</div>
-            <div className="text-3xl font-black text-blue-300">{activeCount}</div>
-            <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">აქტიური</div>
-          </div>
-          <div className="stat-done rounded-2xl p-3.5 text-center">
-            <div className="text-xl mb-1">✅</div>
-            <div className="text-3xl font-black text-emerald-300">{deliveredCount}</div>
-            <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">ჩაბარდა</div>
-          </div>
-        </div>
+      {/* ── Tabs ────────────────────────────────── */}
+      <div className="relative z-10 px-4 pt-3 pb-1 max-w-4xl mx-auto w-full flex gap-2">
+        <button onClick={() => setTab('orders')}
+          className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'orders' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          📋 შეკვეთები
+        </button>
+        <button onClick={() => setTab('couriers')}
+          className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'couriers' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          🏍️ კურიერები
+        </button>
       </div>
 
-      {/* ── Filter tabs ──────────────────────────────────── */}
-      <div className="relative z-10 px-4 pb-4 max-w-4xl mx-auto w-full">
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-          {FILTER_TABS.map((tab) => {
-            const count = tab.key === 'all' ? orders.length : orders.filter((o) => o.status === tab.key).length;
-            const active = filter === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setFilter(tab.key)}
-                className={[
-                  'shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold transition-all duration-200 active:scale-95',
-                  active
-                    ? 'bg-white/[0.14] border border-white/20 text-white backdrop-blur-md'
-                    : 'bg-white/[0.04] border border-transparent text-white/40',
-                ].join(' ')}
-              >
-                <span>{tab.emoji}</span>
-                <span>{tab.label}</span>
-                {count > 0 && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black min-w-[18px] text-center ${active ? 'bg-white/20' : 'bg-white/[0.08]'}`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {tab === 'couriers' ? (
+        <div className="relative z-10 flex-1 px-4 pb-10 max-w-4xl mx-auto w-full pt-4">
+          <CouriersTab user={currentUser} />
         </div>
-      </div>
-
-      {/* ── Order list ───────────────────────────────────── */}
-      <div className="relative z-10 flex-1 px-4 pb-10 max-w-4xl mx-auto w-full">
-        {loading ? (
-          <div className="space-y-3">
-            {(['[animation-delay:0.12s]', '[animation-delay:0.24s]', '[animation-delay:0.36s]'] as const).map((delay, i) => (
-              <div
-                key={i}
-                className={`rounded-3xl h-44 shimmer surface ${delay}`}
-              />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-24 space-y-5 animate-fade-in">
-            <div className="text-7xl animate-float">🏖️</div>
-            <div>
-              <p className="text-white/30 font-bold text-lg">
-                {filter === 'all' ? 'შეკვეთები ჯერ არ შემოსულა' : 'ამ სტატუსის შეკვეთები არ არის'}
-              </p>
-              <p className="text-white/15 text-sm mt-1">
-                {filter === 'all' ? 'QR სკანირებების მოლოდინში...' : 'ფილტრი შეცვალეთ'}
-              </p>
+      ) : (
+        <>
+          {/* ── Stats ──────────────────────────────── */}
+          <div className="relative z-10 px-4 pt-4 pb-3 max-w-4xl mx-auto w-full">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="stat-pending rounded-2xl p-3.5 text-center">
+                <div className="text-xl mb-1">🕐</div>
+                <div className="text-3xl font-black text-amber-300">{pendingCount}</div>
+                <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">მოლოდინი</div>
+              </div>
+              <div className="stat-active rounded-2xl p-3.5 text-center">
+                <div className="text-xl mb-1">⚡</div>
+                <div className="text-3xl font-black text-blue-300">{activeCount}</div>
+                <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">აქტიური</div>
+              </div>
+              <div className="stat-done rounded-2xl p-3.5 text-center">
+                <div className="text-xl mb-1">✅</div>
+                <div className="text-3xl font-black text-emerald-300">{deliveredCount}</div>
+                <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">ჩაბარდა</div>
+              </div>
             </div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {filtered.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                onStatusChange={handleStatusChange}
-                isNew={newOrderIds.has(order.id)}
-              />
-            ))}
+
+          {/* ── Filter tabs ──────────────────────────── */}
+          <div className="relative z-10 px-4 pb-4 max-w-4xl mx-auto w-full">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              {FILTER_TABS.map((t) => {
+                const count = t.key === 'all' ? orders.length : orders.filter((o) => o.status === t.key).length;
+                const active = filter === t.key;
+                return (
+                  <button key={t.key} onClick={() => setFilter(t.key)}
+                    className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold transition-all duration-200 active:scale-95 ${active ? 'bg-white/[0.14] border border-white/20 text-white' : 'bg-white/[0.04] border border-transparent text-white/40'}`}>
+                    <span>{t.emoji}</span><span>{t.label}</span>
+                    {count > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black min-w-[18px] text-center ${active ? 'bg-white/20' : 'bg-white/[0.08]'}`}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* ── Order list ───────────────────────────── */}
+          <div className="relative z-10 flex-1 px-4 pb-10 max-w-4xl mx-auto w-full">
+            {loading ? (
+              <div className="space-y-3">
+                {[0, 1, 2].map((i) => <div key={i} className="rounded-3xl h-44 shimmer surface" />)}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-24 space-y-5 animate-fade-in">
+                <div className="text-7xl animate-float">🏖️</div>
+                <p className="text-white/30 font-bold text-lg">
+                  {filter === 'all' ? 'შეკვეთები ჯერ არ შემოსულა' : 'ამ სტატუსის შეკვეთები არ არის'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filtered.map((order) => (
+                  <OrderCard key={order.id} order={order} onStatusChange={handleStatusChange} isNew={newOrderIds.has(order.id)} />
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </main>
   );
 }

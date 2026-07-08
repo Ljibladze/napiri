@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { api, saveSession, clearSession, getUser, getToken } from '@/lib/api';
 import { useSocket } from '@/hooks/useSocket';
 import { playNewOrder } from '@/lib/sounds';
 import { WaveBackground } from '@/components/layout/WaveBackground';
@@ -9,6 +9,8 @@ import { formatPrice, STATUS_LABEL, STATUS_COLOR, STATUS_DOT, PAYMENT_ICON } fro
 import type { Order } from '@/types';
 
 const ACTIVE = ['pending', 'confirmed', 'preparing', 'delivering'] as const;
+
+type CourierTab = 'live' | 'history';
 
 function useElapsed(createdAt: string) {
   const [elapsed, setElapsed] = useState('');
@@ -26,12 +28,13 @@ function useElapsed(createdAt: string) {
   return elapsed;
 }
 
-function OrderRow({ order, isNew, onDeliver }: { order: Order; isNew: boolean; onDeliver: (id: string) => Promise<void> }) {
+function OrderRow({ order, isNew, onDeliver }: { order: Order; isNew: boolean; onDeliver?: (id: string) => Promise<void> }) {
   const elapsed = useElapsed(order.createdAt);
   const isActive = ACTIVE.includes(order.status as any);
   const [delivering, setDelivering] = useState(false);
 
   async function handleDeliver() {
+    if (!onDeliver) return;
     setDelivering(true);
     try { await onDeliver(order.id); } finally { setDelivering(false); }
   }
@@ -39,29 +42,23 @@ function OrderRow({ order, isNew, onDeliver }: { order: Order; isNew: boolean; o
   return (
     <div className={[
       'rounded-2xl overflow-hidden transition-all duration-500 bg-white/[0.05] backdrop-blur-xl border',
-      isNew
-        ? 'border-ocean-500/50 shadow-[0_0_32px_rgba(0,180,216,0.25)] animate-pop-in'
-        : 'border-white/[0.08]',
+      isNew ? 'border-ocean-500/50 shadow-[0_0_32px_rgba(0,180,216,0.25)] animate-pop-in' : 'border-white/[0.08]',
     ].join(' ')}>
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
         <div className="shrink-0 w-14 h-14 rounded-xl bg-ocean-600/20 border border-ocean-500/30 flex flex-col items-center justify-center">
           <span className="text-white/40 text-[9px] font-bold uppercase tracking-widest leading-none">შეზ</span>
           <span className="text-white font-black text-2xl leading-tight">#{order.loungeId}</span>
         </div>
-
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${STATUS_COLOR[order.status]}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[order.status]} ${order.status === 'pending' ? 'animate-pulse' : ''}`} />
-              {STATUS_LABEL[order.status]}
-            </span>
-          </div>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${STATUS_COLOR[order.status]}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[order.status]} ${order.status === 'pending' ? 'animate-pulse' : ''}`} />
+            {STATUS_LABEL[order.status]}
+          </span>
           <p className="text-white font-bold text-base mt-1 flex items-center gap-1.5">
             <span>{order.restaurantEmoji}</span>
             <span className="truncate">{order.restaurantName}</span>
           </p>
         </div>
-
         <div className="shrink-0 text-right">
           <p className={`font-black text-sm tabular-nums ${isActive ? 'text-sky-300' : 'text-white/30'}`}>{elapsed}</p>
           <p className="text-white/25 text-[10px] mt-0.5">{PAYMENT_ICON[order.paymentMethod]}</p>
@@ -91,15 +88,10 @@ function OrderRow({ order, isNew, onDeliver }: { order: Order; isNew: boolean; o
           <span className="text-white/35 text-xs">სულ </span>
           <span className="text-white font-black text-lg">{formatPrice(order.total)}</span>
         </div>
-        {order.status === 'delivering' && (
-          <button
-            onClick={handleDeliver}
-            disabled={delivering}
-            className="px-4 py-2 rounded-xl text-xs font-black text-white transition-all active:scale-95 disabled:opacity-60 flex items-center gap-1.5 bg-emerald-600/80 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.2)]"
-          >
-            {delivering
-              ? <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-              : '✓ ჩავბარე'}
+        {order.status === 'delivering' && onDeliver && (
+          <button onClick={handleDeliver} disabled={delivering}
+            className="px-4 py-2 rounded-xl text-xs font-black text-white transition-all active:scale-95 disabled:opacity-60 flex items-center gap-1.5 bg-emerald-600/80 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.2)]">
+            {delivering ? <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : '✓ ჩავბარე'}
           </button>
         )}
       </div>
@@ -125,7 +117,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
         setError(true);
         return;
       }
-      sessionStorage.setItem('napiri_jwt', res.token);
+      saveSession(res.token, res.user);
       sessionStorage.setItem('napiri_courier', '1');
       onLogin();
     } catch {
@@ -143,48 +135,22 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           <h1 className="text-white font-black text-2xl">კურიერი</h1>
           <p className="text-white/40 text-sm">ნაპირი · ქობულეთი</p>
         </div>
-
         <div className="space-y-3">
-          <input
-            type="text"
-            placeholder="მომხმარებელი"
-            value={user}
+          <input type="text" placeholder="მომხმარებელი" value={user}
             onChange={(e) => { setUser(e.target.value); setError(false); }}
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-            onFocus={() => setUserFocused(true)}
-            onBlur={() => setUserFocused(false)}
-            className={[
-              'w-full rounded-xl px-4 py-3.5 text-white placeholder-white/25 text-sm focus:outline-none transition-all bg-white/[0.07]',
-              userFocused ? 'ring-2 ring-ocean-500/50 border border-ocean-500/30' : 'border border-white/[0.10]',
-            ].join(' ')}
-          />
-          <input
-            type="password"
-            placeholder="პაროლი"
-            value={pass}
+            onFocus={() => setUserFocused(true)} onBlur={() => setUserFocused(false)}
+            className={`w-full rounded-xl px-4 py-3.5 text-white placeholder-white/25 text-sm focus:outline-none transition-all bg-white/[0.07] ${userFocused ? 'ring-2 ring-ocean-500/50 border border-ocean-500/30' : 'border border-white/[0.10]'}`} />
+          <input type="password" placeholder="პაროლი" value={pass}
             onChange={(e) => { setPass(e.target.value); setError(false); }}
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-            onFocus={() => setPassFocused(true)}
-            onBlur={() => setPassFocused(false)}
-            className={[
-              'w-full rounded-xl px-4 py-3.5 text-white placeholder-white/25 text-sm focus:outline-none transition-all bg-white/[0.07]',
-              passFocused ? 'ring-2 ring-ocean-500/50 border border-ocean-500/30' : 'border border-white/[0.10]',
-            ].join(' ')}
-          />
+            onFocus={() => setPassFocused(true)} onBlur={() => setPassFocused(false)}
+            className={`w-full rounded-xl px-4 py-3.5 text-white placeholder-white/25 text-sm focus:outline-none transition-all bg-white/[0.07] ${passFocused ? 'ring-2 ring-ocean-500/50 border border-ocean-500/30' : 'border border-white/[0.10]'}`} />
         </div>
-
-        {error && (
-          <p className="text-red-400 text-sm text-center">არასწორი მომხმარებელი ან პაროლი</p>
-        )}
-
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full py-4 rounded-2xl font-black text-white text-base bg-btn-ocean shadow-ocean active:scale-[0.97] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-        >
-          {loading
-            ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-            : 'შესვლა'}
+        {error && <p className="text-red-400 text-sm text-center">არასწორი მომხმარებელი ან პაროლი</p>}
+        <button onClick={handleLogin} disabled={loading}
+          className="w-full py-4 rounded-2xl font-black text-white text-base bg-btn-ocean shadow-ocean active:scale-[0.97] transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+          {loading ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : 'შესვლა'}
         </button>
       </div>
     </div>
@@ -193,13 +159,22 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
 
 export default function CourierPage() {
   const [authed, setAuthed] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [history, setHistory] = useState<Order[]>([]);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<CourierTab>('live');
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem('napiri_courier') === '1') setAuthed(true);
+    const token = getToken();
+    const user = getUser();
+    if (token && user && sessionStorage.getItem('napiri_courier') === '1') {
+      setCurrentUser(user);
+      setAuthed(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -209,6 +184,15 @@ export default function CourierPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [authed]);
+
+  useEffect(() => {
+    if (!authed || tab !== 'history' || !currentUser) return;
+    setHistoryLoading(true);
+    api.orders.byCourier(currentUser.id)
+      .then(setHistory)
+      .catch(console.error)
+      .finally(() => setHistoryLoading(false));
+  }, [authed, tab, currentUser]);
 
   useSocket({
     connect: () => {
@@ -239,18 +223,29 @@ export default function CourierPage() {
     },
   });
 
+  function handleLogout() {
+    clearSession();
+    setAuthed(false);
+    setCurrentUser(null);
+  }
+
   if (!authed) {
     return (
       <main className="relative min-h-dvh">
         <WaveBackground />
         <div className="relative z-10">
-          <LoginScreen onLogin={() => setAuthed(true)} />
+          <LoginScreen onLogin={() => {
+            setCurrentUser(getUser());
+            setAuthed(true);
+          }} />
         </div>
       </main>
     );
   }
 
   const active = orders.filter((o) => ACTIVE.includes(o.status as any));
+  const deliveredCount = history.length;
+  const totalRevenue = history.reduce((s, o) => s + o.total, 0);
 
   return (
     <main className="relative min-h-dvh">
@@ -261,12 +256,11 @@ export default function CourierPage() {
           <span className="text-2xl">🏍️</span>
           <div>
             <span className="font-black text-xl tracking-tight text-white">კურიერი</span>
-            <p className="text-white/40 text-xs">ნაპირი · ქობულეთი</p>
+            <p className="text-white/40 text-xs">{currentUser?.username} · ქობულეთი</p>
           </div>
         </div>
-
         <div className="flex items-center gap-2">
-          {active.length > 0 && (
+          {active.length > 0 && tab === 'live' && (
             <span className="px-3 py-1.5 rounded-xl text-xs font-black text-white bg-ocean-600/30 border border-ocean-500/30">
               {active.length} აქტიური
             </span>
@@ -275,32 +269,81 @@ export default function CourierPage() {
             <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400 dot-live' : 'bg-white/20'}`} />
             <span className="text-white/40 text-[10px] font-bold">{connected ? 'LIVE' : '...'}</span>
           </div>
+          <button onClick={handleLogout}
+            className="text-white/30 hover:text-white/60 text-xs transition-colors px-2.5 py-1.5 rounded-xl bg-white/[0.05]">
+            გამოსვლა
+          </button>
         </div>
       </header>
 
+      {/* Tabs */}
+      <div className="relative z-10 px-4 pb-2 pt-1 flex gap-2">
+        <button onClick={() => setTab('live')}
+          className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'live' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          ⚡ Live
+        </button>
+        <button onClick={() => setTab('history')}
+          className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'history' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          📊 სტატისტიკა
+        </button>
+      </div>
+
       <div className="relative z-10 px-4 pb-8 space-y-3 pt-2">
-        {loading && (
-          <div className="flex flex-col items-center justify-center gap-4 h-64 text-white/40">
-            <div className="w-8 h-8 border-2 border-white/15 border-t-white/50 rounded-full animate-spin" />
-            <span className="text-sm">იტვირთება...</span>
-          </div>
+        {tab === 'live' ? (
+          <>
+            {loading && (
+              <div className="flex flex-col items-center justify-center gap-4 h-64 text-white/40">
+                <div className="w-8 h-8 border-2 border-white/15 border-t-white/50 rounded-full animate-spin" />
+                <span className="text-sm">იტვირთება...</span>
+              </div>
+            )}
+            {!loading && active.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-3 h-64 text-white/30">
+                <span className="text-5xl">🏖️</span>
+                <p className="text-sm font-medium">აქტიური შეკვეთა არ არის</p>
+              </div>
+            )}
+            {active.map((order) => (
+              <OrderRow key={order.id} order={order} isNew={newIds.has(order.id)}
+                onDeliver={async (id) => {
+                  await api.orders.updateStatus(id, 'delivered', currentUser?.id);
+                }} />
+            ))}
+          </>
+        ) : (
+          <>
+            {historyLoading ? (
+              <div className="flex justify-center py-16">
+                <span className="w-8 h-8 border-2 border-white/15 border-t-white/50 rounded-full animate-spin" />
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3 mb-2">
+                  <div className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4 text-center">
+                    <div className="text-2xl mb-1">📦</div>
+                    <div className="text-2xl font-black text-sky-300">{deliveredCount}</div>
+                    <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">ჩაბარება</div>
+                  </div>
+                  <div className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4 text-center">
+                    <div className="text-2xl mb-1">💰</div>
+                    <div className="text-2xl font-black text-emerald-300">₾{totalRevenue.toFixed(0)}</div>
+                    <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">ღირებულება</div>
+                  </div>
+                </div>
+                {history.length === 0 ? (
+                  <div className="text-center py-12 text-white/30 text-sm">
+                    <span className="text-4xl block mb-3">🏖️</span>
+                    ჩაბარებული შეკვეთა ჯერ არ გაქვს
+                  </div>
+                ) : (
+                  history.map((order) => (
+                    <OrderRow key={order.id} order={order} isNew={false} />
+                  ))
+                )}
+              </>
+            )}
+          </>
         )}
-
-        {!loading && active.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-3 h-64 text-white/30">
-            <span className="text-5xl">🏖️</span>
-            <p className="text-sm font-medium">აქტიური შეკვეთა არ არის</p>
-          </div>
-        )}
-
-        {active.map((order) => (
-          <OrderRow
-            key={order.id}
-            order={order}
-            isNew={newIds.has(order.id)}
-            onDeliver={async (id) => { await api.orders.updateStatus(id, 'delivered'); }}
-          />
-        ))}
       </div>
     </main>
   );

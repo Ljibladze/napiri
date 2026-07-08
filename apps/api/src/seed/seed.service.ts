@@ -10,32 +10,8 @@ export class SeedService implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
 
   async onModuleInit() {
-    await this.seedUsers();
     await this.seedRestaurants();
-  }
-
-  private async seedUsers() {
-    const count = await this.prisma.user.count();
-    if (count > 0) return;
-
-    this.logger.log('Seeding initial users...');
-    const superPass = process.env.SUPER_ADMIN_PASS ?? 'napiri2024';
-
-    await this.prisma.user.createMany({
-      data: [
-        {
-          username: 'superadmin',
-          passwordHash: await bcrypt.hash(superPass, 10),
-          role: 'superAdmin',
-        },
-        {
-          username: 'courier1',
-          passwordHash: await bcrypt.hash('juvaxa123', 10),
-          role: 'courier',
-        },
-      ],
-    });
-    this.logger.log('Users seeded');
+    await this.seedUsers();
   }
 
   private async seedRestaurants() {
@@ -43,7 +19,6 @@ export class SeedService implements OnModuleInit {
     if (count > 0) return;
 
     this.logger.log('Seeding restaurants and menu items...');
-
     for (const seedR of SEED_RESTAURANTS) {
       const { menu, ...restaurantData } = seedR;
       await this.prisma.restaurant.create({ data: restaurantData });
@@ -66,7 +41,32 @@ export class SeedService implements OnModuleInit {
         }
       }
     }
-
     this.logger.log('Restaurants and menu seeded');
+  }
+
+  private async seedUsers() {
+    const superAdminPass = process.env.SUPER_ADMIN_PASS ?? 'napiri2024';
+
+    const toSeed = [
+      { username: 'superadmin',  password: superAdminPass, role: 'superAdmin',      restaurantId: null },
+      { username: 'courier1',    password: 'juvaxa123',    role: 'courier',          restaurantId: null },
+      { username: 'olympos',     password: 'juvaxa123',    role: 'restaurantAdmin',  restaurantId: '1' },
+      { username: 'bluebay',     password: 'juvaxa123',    role: 'restaurantAdmin',  restaurantId: '2' },
+      { username: 'sanapiro',    password: 'juvaxa123',    role: 'restaurantAdmin',  restaurantId: '3' },
+    ];
+
+    for (const u of toSeed) {
+      const exists = await this.prisma.user.findUnique({ where: { username: u.username } });
+      if (exists) continue;
+      await this.prisma.user.create({
+        data: {
+          username: u.username,
+          passwordHash: await bcrypt.hash(u.password, 10),
+          role: u.role,
+          restaurantId: u.restaurantId,
+        },
+      });
+      this.logger.log(`Seeded user: ${u.username}`);
+    }
   }
 }

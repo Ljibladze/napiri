@@ -54,6 +54,7 @@ model Order {
   paymentMethod   String
   status          String      @default("pending")
   notes           String?
+  courierId       String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   items           OrderItem[]

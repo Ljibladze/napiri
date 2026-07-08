@@ -12,6 +12,14 @@ export class UsersService {
     return users.map(({ passwordHash: _h, ...u }) => u);
   }
 
+  async findByRestaurant(restaurantId: string) {
+    const users = await this.prisma.user.findMany({
+      where: { restaurantId, role: 'courier' },
+      orderBy: { createdAt: 'desc' },
+    });
+    return users.map(({ passwordHash: _h, ...u }) => u);
+  }
+
   async create(dto: CreateUserDto) {
     const existing = await this.prisma.user.findUnique({ where: { username: dto.username } });
     if (existing) throw new ConflictException('Username already exists');
@@ -39,5 +47,16 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(password, 10);
     await this.prisma.user.update({ where: { id }, data: { passwordHash } });
     return { updated: true };
+  }
+
+  async reassign(id: string, restaurantId: string | null) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { restaurantId },
+    });
+    const { passwordHash: _h, ...result } = updated;
+    return result;
   }
 }

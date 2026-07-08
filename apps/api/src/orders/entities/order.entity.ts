@@ -30,4 +30,5 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  courierId?: string;
 }

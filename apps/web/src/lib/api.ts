@@ -7,9 +7,28 @@ import type {
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
-function getToken(): string | null {
+export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return sessionStorage.getItem('napiri_jwt');
+}
+
+export function getUser(): any | null {
+  if (typeof window === 'undefined') return null;
+  const s = sessionStorage.getItem('napiri_user');
+  return s ? JSON.parse(s) : null;
+}
+
+export function saveSession(token: string, user: any) {
+  sessionStorage.setItem('napiri_jwt', token);
+  sessionStorage.setItem('napiri_user', JSON.stringify(user));
+}
+
+export function clearSession() {
+  sessionStorage.removeItem('napiri_jwt');
+  sessionStorage.removeItem('napiri_user');
+  sessionStorage.removeItem('napiri_courier');
+  sessionStorage.removeItem('napiri_admin');
+  sessionStorage.removeItem('napiri_superadmin');
 }
 
 async function request<T>(path: string, init?: RequestInit, auth?: boolean): Promise<T> {
@@ -36,19 +55,25 @@ export const api = {
     remove: (id: string) => request<any>(`/restaurants/${id}`, { method: 'DELETE' }, true),
   },
   orders: {
-    list: () => request<Order[]>('/orders'),
+    list: (restaurantId?: string) => request<Order[]>(`/orders${restaurantId ? `?restaurantId=${restaurantId}` : ''}`),
     get: (id: string) => request<Order>(`/orders/${id}`),
     create: (payload: CreateOrderPayload) =>
       request<Order>('/orders', { method: 'POST', body: JSON.stringify(payload) }),
-    updateStatus: (id: string, status: Order['status']) =>
-      request<Order>(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    updateStatus: (id: string, status: Order['status'], courierId?: string) =>
+      request<Order>(`/orders/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, courierId }),
+      }, true),
+    byCourier: (courierId: string) => request<Order[]>(`/orders/courier/${courierId}`, undefined, true),
+    courierStats: (restaurantId?: string) =>
+      request<any[]>(`/orders/courier-stats${restaurantId ? `?restaurantId=${restaurantId}` : ''}`, undefined, true),
   },
   auth: {
     login: (username: string, password: string) =>
-      request<{ token: string; user: { id: string; username: string; role: string; restaurantId: string | null } }>(
-        '/auth/login',
-        { method: 'POST', body: JSON.stringify({ username, password }) },
-      ),
+      request<{ token: string; user: any }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      }),
   },
   users: {
     list: () => request<any[]>('/users', undefined, true),
@@ -56,6 +81,8 @@ export const api = {
     remove: (id: string) => request<any>(`/users/${id}`, { method: 'DELETE' }, true),
     updatePassword: (id: string, password: string) =>
       request<any>(`/users/${id}/password`, { method: 'PATCH', body: JSON.stringify({ password }) }, true),
+    reassign: (id: string, restaurantId: string | null) =>
+      request<any>(`/users/${id}/reassign`, { method: 'PATCH', body: JSON.stringify({ restaurantId }) }, true),
   },
   menu: {
     list: (restaurantId: string) => request<any[]>(`/menu/${restaurantId}`),
