@@ -31,4 +31,5 @@ export interface Order {
   updatedAt: string;
   notes?: string;
   courierId?: string;
+  assignedCourierId?: string;
 }
