@@ -622,7 +622,7 @@ function QRTab() {
       color: { dark: '#0a1628', light: '#f0f9ff' },
     });
 
-    const W = 420, H = 540;
+    const W = 420, H = 570;
     const ctx = canvasRef.current.getContext('2d')!;
     canvasRef.current.width = W;
     canvasRef.current.height = H;
@@ -680,7 +680,7 @@ function QRTab() {
     // QR code white card
     const QR_SIZE = 230;
     const QR_X = (W - QR_SIZE) / 2;
-    const QR_Y = 224;
+    const QR_Y = 248;
     const padding = 14;
     ctx.fillStyle = '#f0f9ff';
     roundRect(ctx, QR_X - padding, QR_Y - padding, QR_SIZE + padding * 2, QR_SIZE + padding * 2, 16);
@@ -698,7 +698,7 @@ function QRTab() {
     // Bottom text
     ctx.font = '13px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.fillText('📱 სკანირეთ შეკვეთის გასაკეთებლად', W / 2, QR_Y + QR_SIZE + padding * 2 + 22);
+    ctx.fillText('დაასკანერეთ შესაკვეთად', W / 2, QR_Y + QR_SIZE + padding * 2 + 22);
 
     // Ocean wave decoration bottom
     ctx.fillStyle = 'rgba(0, 180, 216, 0.06)';
