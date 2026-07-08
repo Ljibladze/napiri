@@ -77,6 +77,7 @@ export const api = {
       }),
   },
   users: {
+    me: () => request<any>('/users/me', undefined, true),
     list: () => request<any[]>('/users', undefined, true),
     create: (body: any) => request<any>('/users', { method: 'POST', body: JSON.stringify(body) }, true),
     remove: (id: string) => request<any>(`/users/${id}`, { method: 'DELETE' }, true),

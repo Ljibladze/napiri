@@ -177,6 +177,13 @@ export default function CourierPage() {
       setCurrentUser(user);
       setIsActive(user.isActive ?? false);
       setAuthed(true);
+      // refresh isActive from DB (sessionStorage might be stale)
+      api.users.me().then((fresh) => {
+        if (fresh) {
+          setIsActive(fresh.isActive ?? false);
+          saveSession(token, { ...user, isActive: fresh.isActive });
+        }
+      }).catch(console.error);
     }
   }, []);
 

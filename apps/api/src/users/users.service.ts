@@ -49,8 +49,28 @@ export class UsersService {
     return { updated: true };
   }
 
+  async findById(id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) return null;
+    const { passwordHash: _h, ...result } = user;
+    return result;
+  }
+
   async setActive(id: string, isActive: boolean) {
     const updated = await this.prisma.user.update({ where: { id }, data: { isActive } });
+
+    // when courier goes active, grab unassigned orders for their restaurant
+    if (isActive && updated.restaurantId) {
+      await this.prisma.order.updateMany({
+        where: {
+          restaurantId: updated.restaurantId,
+          assignedCourierId: null,
+          status: { notIn: ['delivered', 'cancelled'] },
+        },
+        data: { assignedCourierId: id },
+      });
+    }
+
     const { passwordHash: _h, ...result } = updated;
     return result;
   }
