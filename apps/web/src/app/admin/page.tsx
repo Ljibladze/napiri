@@ -172,10 +172,10 @@ function StatsTab({ user }: { user: any }) {
       if (rId) {
         const rStat = data.byRestaurant?.find((r: any) => r.id === rId);
         const rOrders = data.recent?.filter((o: any) => o.restaurantId === rId) ?? [];
-        const byStatus = rOrders.reduce<Record<string, number>>((acc: Record<string, number>, o: any) => {
+        const byStatus = rOrders.reduce((acc: Record<string, number>, o: any) => {
           acc[o.status] = (acc[o.status] ?? 0) + 1;
           return acc;
-        }, {});
+        }, {} as Record<string, number>);
         setStats({
           totalOrders: rStat?.orders ?? 0,
           totalRevenue: rStat?.revenue ?? 0,
