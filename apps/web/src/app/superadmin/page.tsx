@@ -56,7 +56,7 @@ function Sel({ label, children, ...props }: { label: string } & React.SelectHTML
   return (
     <div className="space-y-1.5">
       <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">{label}</label>
-      <select {...props} className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all">{children}</select>
+      <select {...props} style={{ backgroundColor: '#0d1b2a', color: 'white' }} className="w-full border border-white/[0.10] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all">{children}</select>
     </div>
   );
 }
@@ -475,7 +475,8 @@ function CouriersTab({ restaurants }: { restaurants: any[] }) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-white font-black">კურიერების სტატისტიკა</h3>
         <select value={filterR} onChange={(e) => setFilterR(e.target.value)}
-          className="bg-white/[0.07] border border-white/[0.10] rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
+          style={{ backgroundColor: '#0d1b2a', color: 'white' }}
+          className="border border-white/[0.10] rounded-xl px-3 py-2 text-sm focus:outline-none">
           <option value="">ყველა რესტორანი</option>
           {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
