@@ -426,7 +426,7 @@ function UsersTab({ restaurants }: { restaurants: any[] }) {
             {(form.role === 'restaurantAdmin' || form.role === 'courier') && (
               <Sel label="რესტორანი" value={form.restaurantId} onChange={(e) => setForm((f) => ({ ...f, restaurantId: e.target.value }))}>
                 <option value="">-- არცერთი --</option>
-                {restaurants.map((r) => <option key={r.id} value={r.id}>{r.emoji} {r.name}</option>)}
+                {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </Sel>
             )}
             <div className="flex gap-2 pt-1">
@@ -442,7 +442,7 @@ function UsersTab({ restaurants }: { restaurants: any[] }) {
             <p className="text-white/60 text-sm">კურიერი: <span className="text-white font-bold">{reassignModal.username}</span></p>
             <Sel label="ახალი რესტორანი" value={newRestaurantId} onChange={(e) => setNewRestaurantId(e.target.value)}>
               <option value="">-- არცერთი --</option>
-              {restaurants.map((r) => <option key={r.id} value={r.id}>{r.emoji} {r.name}</option>)}
+              {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </Sel>
             <div className="flex gap-2 pt-1">
               <Btn variant="ghost" className="flex-1" onClick={() => setReassignModal(null)}>გაუქმება</Btn>
@@ -477,7 +477,7 @@ function CouriersTab({ restaurants }: { restaurants: any[] }) {
         <select value={filterR} onChange={(e) => setFilterR(e.target.value)}
           className="bg-white/[0.07] border border-white/[0.10] rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
           <option value="">ყველა რესტორანი</option>
-          {restaurants.map((r) => <option key={r.id} value={r.id}>{r.emoji} {r.name}</option>)}
+          {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
       </div>
       {loading ? <div className="flex justify-center py-12"><Spinner /></div> : stats.length === 0 ? (
