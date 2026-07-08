@@ -8,8 +8,6 @@ import { WaveBackground } from '@/components/layout/WaveBackground';
 import { formatPrice, STATUS_LABEL, STATUS_COLOR, STATUS_DOT, PAYMENT_ICON } from '@/lib/utils';
 import type { Order } from '@/types';
 
-const COURIER_USER = 'courier1';
-const COURIER_PASS = 'juvaxa123';
 const ACTIVE = ['pending', 'confirmed', 'preparing', 'delivering'] as const;
 
 function useElapsed(createdAt: string) {
@@ -113,15 +111,27 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [userFocused, setUserFocused] = useState(false);
   const [passFocused, setPassFocused] = useState(false);
 
-  function handleLogin() {
-    if (user === COURIER_USER && pass === COURIER_PASS) {
+  async function handleLogin() {
+    if (!user || !pass) return;
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await api.auth.login(user, pass);
+      if (res.user.role !== 'courier' && res.user.role !== 'superAdmin') {
+        setError(true);
+        return;
+      }
+      sessionStorage.setItem('napiri_jwt', res.token);
       sessionStorage.setItem('napiri_courier', '1');
       onLogin();
-    } else {
+    } catch {
       setError(true);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -169,9 +179,12 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
 
         <button
           onClick={handleLogin}
-          className="w-full py-4 rounded-2xl font-black text-white text-base bg-btn-ocean shadow-ocean active:scale-[0.97] transition-all"
+          disabled={loading}
+          className="w-full py-4 rounded-2xl font-black text-white text-base bg-btn-ocean shadow-ocean active:scale-[0.97] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
         >
-          შესვლა
+          {loading
+            ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+            : 'შესვლა'}
         </button>
       </div>
     </div>

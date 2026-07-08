@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { SEED_RESTAURANTS } from '../data/seed.data';
 import { Order, OrderStatus } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,7 +9,7 @@ export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateOrderDto): Promise<Order> {
-    const restaurant = SEED_RESTAURANTS.find((r) => r.id === dto.restaurantId);
+    const restaurant = await this.prisma.restaurant.findUnique({ where: { id: dto.restaurantId } });
     const total = dto.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const id = `ORD-${uuidv4().slice(0, 8).toUpperCase()}`;
 
