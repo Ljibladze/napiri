@@ -58,6 +58,8 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  courierId?: string;
+  assignedCourierId?: string;
 }
 
 export interface CreateOrderPayload {

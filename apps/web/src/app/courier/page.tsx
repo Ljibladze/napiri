@@ -160,6 +160,8 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
 export default function CourierPage() {
   const [authed, setAuthed] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isActive, setIsActive] = useState(false);
+  const [togglingActive, setTogglingActive] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [history, setHistory] = useState<Order[]>([]);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
@@ -173,14 +175,15 @@ export default function CourierPage() {
     const user = getUser();
     if (token && user && sessionStorage.getItem('napiri_courier') === '1') {
       setCurrentUser(user);
+      setIsActive(user.isActive ?? false);
       setAuthed(true);
     }
   }, []);
 
   useEffect(() => {
     if (!authed) return;
-    api.orders.list()
-      .then((all) => setOrders(all.filter((o) => ACTIVE.includes(o.status as any))))
+    api.orders.assigned()
+      .then(setOrders)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [authed]);
@@ -194,19 +197,29 @@ export default function CourierPage() {
       .finally(() => setHistoryLoading(false));
   }, [authed, tab, currentUser]);
 
+  async function toggleActive() {
+    setTogglingActive(true);
+    try {
+      const updated = await api.users.setActive(!isActive);
+      setIsActive(updated.isActive);
+      const user = getUser();
+      if (user) saveSession(getToken()!, { ...user, isActive: updated.isActive });
+    } catch (e: any) { alert(e.message); }
+    finally { setTogglingActive(false); }
+  }
+
   useSocket({
     connect: () => {
       setConnected(true);
       if (authed) {
-        api.orders.list()
-          .then((all) => setOrders(all.filter((o) => ACTIVE.includes(o.status as any))))
-          .catch(console.error);
+        api.orders.assigned().then(setOrders).catch(console.error);
       }
     },
     disconnect: () => setConnected(false),
     'new-order': (data: unknown) => {
-      if (!authed) return;
+      if (!authed || !currentUser) return;
       const order = data as Order;
+      if (order.assignedCourierId !== currentUser.id) return;
       if (!ACTIVE.includes(order.status as any)) return;
       setOrders((prev) => [order, ...prev]);
       setNewIds((prev) => new Set([...prev, order.id]));
@@ -260,11 +273,11 @@ export default function CourierPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {active.length > 0 && tab === 'live' && (
-            <span className="px-3 py-1.5 rounded-xl text-xs font-black text-white bg-ocean-600/30 border border-ocean-500/30">
-              {active.length} აქტიური
-            </span>
-          )}
+          <button onClick={toggleActive} disabled={togglingActive}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition-all active:scale-95 disabled:opacity-60 ${isActive ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' : 'bg-white/[0.07] border-white/[0.10] text-white/40'}`}>
+            <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-white/25'}`} />
+            {togglingActive ? '...' : isActive ? 'ვმუშაობ' : 'შესვენება'}
+          </button>
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/[0.07] border border-white/[0.08]">
             <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400 dot-live' : 'bg-white/20'}`} />
             <span className="text-white/40 text-[10px] font-bold">{connected ? 'LIVE' : '...'}</span>

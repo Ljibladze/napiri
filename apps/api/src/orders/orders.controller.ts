@@ -20,6 +20,13 @@ export class OrdersController {
     return this.ordersService.findAll();
   }
 
+  @Get('assigned')
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles('courier')
+  findAssigned(@Req() req: any) {
+    return this.ordersService.findAssigned(req.user.sub);
+  }
+
   @Get('courier/:courierId')
   @UseGuards(JwtGuard, RolesGuard)
   @Roles('courier', 'superAdmin', 'restaurantAdmin')

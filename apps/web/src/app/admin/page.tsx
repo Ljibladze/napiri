@@ -259,6 +259,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
   const [tab, setTab] = useState<AdminTab>('orders');
+  const [restaurantActive, setRestaurantActive] = useState<boolean | null>(null);
+  const [togglingRestaurant, setTogglingRestaurant] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -266,6 +268,12 @@ export default function AdminPage() {
     if (token && user && (user.role === 'restaurantAdmin' || user.role === 'superAdmin')) {
       setCurrentUser(user);
       setAuthed(true);
+      if (user.role === 'restaurantAdmin' && user.restaurantId) {
+        api.restaurants.listAdmin().then((list) => {
+          const r = list.find((x: any) => x.id === user.restaurantId);
+          if (r) setRestaurantActive(r.active);
+        }).catch(console.error);
+      }
     }
   }, []);
 
@@ -287,6 +295,16 @@ export default function AdminPage() {
     } finally {
       setAuthLoading(false);
     }
+  }
+
+  async function toggleRestaurant() {
+    if (!currentUser?.restaurantId || restaurantActive === null) return;
+    setTogglingRestaurant(true);
+    try {
+      const updated = await api.restaurants.update(currentUser.restaurantId, { active: !restaurantActive });
+      setRestaurantActive(updated.active);
+    } catch (e: any) { alert(e.message); }
+    finally { setTogglingRestaurant(false); }
   }
 
   function handleLogout() {
@@ -412,6 +430,13 @@ export default function AdminPage() {
               <span className="text-xs font-black px-3 py-1.5 rounded-full text-white animate-pulse bg-gradient-to-br from-amber-500 to-amber-600 shadow-[0_4px_16px_rgba(245,158,11,0.5)]">
                 {pendingCount} ახალი 🔔
               </span>
+            )}
+            {currentUser?.role === 'restaurantAdmin' && restaurantActive !== null && (
+              <button onClick={toggleRestaurant} disabled={togglingRestaurant}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition-all active:scale-95 disabled:opacity-60 ${restaurantActive ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' : 'bg-red-500/20 border-red-500/40 text-red-300'}`}>
+                <span className={`w-2 h-2 rounded-full ${restaurantActive ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+                {togglingRestaurant ? '...' : restaurantActive ? 'ღია' : 'დახურული'}
+              </button>
             )}
             <button onClick={handleLogout}
               className="text-white/30 hover:text-white/60 text-sm transition-colors px-3 py-1.5 rounded-xl font-medium bg-white/[0.05]">

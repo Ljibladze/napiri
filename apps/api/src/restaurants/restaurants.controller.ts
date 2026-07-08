@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { RestaurantsService } from './restaurants.service';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -13,7 +13,7 @@ export class RestaurantsController {
 
   @Get('admin/all')
   @UseGuards(JwtGuard, RolesGuard)
-  @Roles('superAdmin')
+  @Roles('superAdmin', 'restaurantAdmin')
   findAllAdmin() { return this.restaurants.findAllAdmin(); }
 
   @Get(':id')
@@ -26,8 +26,15 @@ export class RestaurantsController {
 
   @Patch(':id')
   @UseGuards(JwtGuard, RolesGuard)
-  @Roles('superAdmin')
-  update(@Param('id') id: string, @Body() body: any) { return this.restaurants.update(id, body); }
+  @Roles('superAdmin', 'restaurantAdmin')
+  update(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    if (req.user.role === 'restaurantAdmin') {
+      if (req.user.restaurantId !== id) throw new ForbiddenException();
+      const { active } = body;
+      return this.restaurants.update(id, { active });
+    }
+    return this.restaurants.update(id, body);
+  }
 
   @Delete(':id')
   @UseGuards(JwtGuard, RolesGuard)

@@ -49,6 +49,12 @@ export class UsersService {
     return { updated: true };
   }
 
+  async setActive(id: string, isActive: boolean) {
+    const updated = await this.prisma.user.update({ where: { id }, data: { isActive } });
+    const { passwordHash: _h, ...result } = updated;
+    return result;
+  }
+
   async reassign(id: string, restaurantId: string | null) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');

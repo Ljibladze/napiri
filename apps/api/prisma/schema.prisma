@@ -13,6 +13,7 @@ model User {
   passwordHash String
   role         String
   restaurantId String?
+  isActive     Boolean     @default(false)
   restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
   createdAt    DateTime    @default(now())
 }
@@ -53,9 +54,10 @@ model Order {
   total           Float
   paymentMethod   String
   status          String      @default("pending")
-  notes           String?
-  courierId       String?
-  createdAt       DateTime    @default(now())
+  notes               String?
+  courierId           String?
+  assignedCourierId   String?
+  createdAt           DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   items           OrderItem[]
 }

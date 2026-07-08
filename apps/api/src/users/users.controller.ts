@@ -40,6 +40,12 @@ export class UsersController {
     return this.users.updatePassword(id, password);
   }
 
+  @Patch('me/active')
+  @Roles('courier')
+  setActive(@Req() req: any, @Body('isActive') isActive: boolean) {
+    return this.users.setActive(req.user.sub, isActive);
+  }
+
   @Patch(':id/reassign')
   @Roles('superAdmin')
   reassign(@Param('id') id: string, @Body('restaurantId') restaurantId: string | null) {

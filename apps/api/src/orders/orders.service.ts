@@ -8,10 +8,29 @@ import { PrismaService } from '../prisma/prisma.service';
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async assignCourier(restaurantId: string): Promise<string | null> {
+    const active = await this.prisma.user.findMany({
+      where: { role: 'courier', restaurantId, isActive: true },
+    });
+    if (active.length === 0) return null;
+
+    const counts = await Promise.all(
+      active.map(async (c) => ({
+        id: c.id,
+        count: await this.prisma.order.count({
+          where: { assignedCourierId: c.id, status: { notIn: ['delivered', 'cancelled'] } },
+        }),
+      })),
+    );
+    counts.sort((a, b) => a.count - b.count);
+    return counts[0].id;
+  }
+
   async create(dto: CreateOrderDto): Promise<Order> {
     const restaurant = await this.prisma.restaurant.findUnique({ where: { id: dto.restaurantId } });
     const total = dto.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const id = `ORD-${uuidv4().slice(0, 8).toUpperCase()}`;
+    const assignedCourierId = await this.assignCourier(dto.restaurantId);
 
     const order = await this.prisma.order.create({
       data: {
@@ -24,6 +43,7 @@ export class OrdersService {
         paymentMethod: dto.paymentMethod,
         status: 'pending',
         notes: dto.notes ?? null,
+        assignedCourierId,
         items: {
           create: dto.items.map((item) => ({
             id: `${id}-${uuidv4().slice(0, 6)}`,
@@ -61,6 +81,15 @@ export class OrdersService {
   async findByRestaurant(restaurantId: string): Promise<Order[]> {
     const orders = await this.prisma.order.findMany({
       where: { restaurantId },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return orders.map((o) => this.toEntity(o));
+  }
+
+  async findAssigned(courierId: string): Promise<Order[]> {
+    const orders = await this.prisma.order.findMany({
+      where: { assignedCourierId: courierId, status: { notIn: ['delivered', 'cancelled'] } },
       include: { items: true },
       orderBy: { createdAt: 'desc' },
     });
@@ -131,6 +160,7 @@ export class OrdersService {
       status: raw.status as OrderStatus,
       notes: raw.notes ?? undefined,
       courierId: raw.courierId ?? undefined,
+      assignedCourierId: raw.assignedCourierId ?? undefined,
       createdAt: raw.createdAt instanceof Date ? raw.createdAt.toISOString() : raw.createdAt,
       updatedAt: raw.updatedAt instanceof Date ? raw.updatedAt.toISOString() : raw.updatedAt,
       items: raw.items.map((i: any) => ({

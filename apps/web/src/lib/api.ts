@@ -64,6 +64,7 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ status, courierId }),
       }, true),
+    assigned: () => request<Order[]>('/orders/assigned', undefined, true),
     byCourier: (courierId: string) => request<Order[]>(`/orders/courier/${courierId}`, undefined, true),
     courierStats: (restaurantId?: string) =>
       request<any[]>(`/orders/courier-stats${restaurantId ? `?restaurantId=${restaurantId}` : ''}`, undefined, true),
@@ -81,6 +82,8 @@ export const api = {
     remove: (id: string) => request<any>(`/users/${id}`, { method: 'DELETE' }, true),
     updatePassword: (id: string, password: string) =>
       request<any>(`/users/${id}/password`, { method: 'PATCH', body: JSON.stringify({ password }) }, true),
+    setActive: (isActive: boolean) =>
+      request<any>('/users/me/active', { method: 'PATCH', body: JSON.stringify({ isActive }) }, true),
     reassign: (id: string, restaurantId: string | null) =>
       request<any>(`/users/${id}/reassign`, { method: 'PATCH', body: JSON.stringify({ restaurantId }) }, true),
   },
