@@ -211,6 +211,10 @@ export default function CourierPage() {
       setIsActive(updated.isActive);
       const user = getUser();
       if (user) saveSession(getToken()!, { ...user, isActive: updated.isActive });
+      if (updated.isActive) {
+        const fresh = await api.orders.assigned();
+        setOrders(fresh);
+      }
     } catch (e: any) { alert(e.message); }
     finally { setTogglingActive(false); }
   }
