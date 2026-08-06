@@ -14,6 +14,7 @@ export function OrderCard({ order, onStatusChange, isNew = false }: OrderCardPro
   const [loading, setLoading] = useState(false);
   const next = NEXT_STATUS[order.status];
   const nextLabel = (next?.status === 'delivering' && order.deliveryType === 'pickup') ? 'მზადაა' : next?.label;
+  const isPickupReady = order.deliveryType === 'pickup' && order.status === 'delivering';
   const canCancel = order.status !== 'delivered' && order.status !== 'cancelled';
 
   async function handleChange(status: OrderStatus) {
@@ -38,7 +39,7 @@ export function OrderCard({ order, onStatusChange, isNew = false }: OrderCardPro
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold s-badge-${order.status}`}>
               <span className={`w-1.5 h-1.5 rounded-full s-dot-${order.status} ${order.status === 'pending' ? 'animate-pulse' : ''}`} />
-              {STATUS_LABEL[order.status]}
+              {isPickupReady ? 'მზადაა' : STATUS_LABEL[order.status]}
             </span>
 
             {isNew && (
@@ -113,16 +114,16 @@ export function OrderCard({ order, onStatusChange, isNew = false }: OrderCardPro
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-white/25 text-xs font-medium">{formatRelativeTime(order.createdAt)}</span>
 
-          {next && (
+          {(next || isPickupReady) && (
             <button
-              onClick={() => handleChange(next.status)}
+              onClick={() => handleChange(isPickupReady ? 'delivered' : next!.status)}
               disabled={loading}
-              className="px-3.5 py-2 rounded-xl text-xs font-black text-white transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed bg-btn-ocean shadow-ocean flex items-center gap-1.5"
+              className={`px-3.5 py-2 rounded-xl text-xs font-black text-white transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5 ${isPickupReady ? 'bg-emerald-600/80 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.2)]' : 'bg-btn-ocean shadow-ocean'}`}
             >
               {loading ? (
                 <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
               ) : (
-                <>{nextLabel} ›</>
+                <>{isPickupReady ? 'წაიღეს ›' : `${nextLabel} ›`}</>
               )}
             </button>
           )}
