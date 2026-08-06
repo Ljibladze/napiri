@@ -38,6 +38,7 @@ model MenuItem {
   description  String?
   price        Float
   emoji        String
+  imageUrl     String?
   special      Boolean    @default(false)
   category     String
   sortOrder    Int        @default(0)

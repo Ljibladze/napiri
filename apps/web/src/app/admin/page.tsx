@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { playNewOrder } from '@/lib/sounds';
 import type { Order, OrderStatus } from '@/types';
 import { api, saveSession, clearSession, getUser, getToken } from '@/lib/api';
+import { uploadImage } from '@/lib/cloudinary';
 import { useSocket } from '@/hooks/useSocket';
 import { WaveBackground } from '@/components/layout/WaveBackground';
 import { OrderCard } from '@/components/admin/OrderCard';
 import { STATUS_LABEL } from '@/lib/utils';
 
 type FilterTab = 'all' | OrderStatus;
-type AdminTab = 'orders' | 'couriers' | 'stats';
+type AdminTab = 'orders' | 'menu' | 'couriers' | 'stats';
 
 const FILTER_TABS: { key: FilterTab; label: string; emoji: string }[] = [
   { key: 'all',        label: 'ყველა',              emoji: '📋' },
@@ -20,6 +21,246 @@ const FILTER_TABS: { key: FilterTab; label: string; emoji: string }[] = [
   { key: 'delivering', label: STATUS_LABEL.delivering,emoji: '🏃' },
   { key: 'delivered',  label: STATUS_LABEL.delivered, emoji: '🎉' },
 ];
+
+// ── Image Picker ─────────────────────────────────────────────────────────────
+
+function ImagePicker({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadImage(file);
+      onChange(url);
+    } catch (err: any) {
+      alert(err.message ?? 'ატვირთვა ვერ მოხერხდა');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">სურათი</label>
+      <div className="flex items-center gap-3">
+        <div className="w-16 h-16 rounded-xl border border-white/[0.10] bg-white/[0.05] overflow-hidden flex items-center justify-center shrink-0">
+          {value ? (
+            <img src={value} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-white/20 text-2xl">🖼️</span>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5 flex-1">
+          <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading}
+            className="px-3 py-2 rounded-xl text-xs font-bold bg-white/[0.07] border border-white/[0.10] text-white/70 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5">
+            {uploading ? <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : '📁'}
+            {uploading ? 'იტვირთება...' : 'ფოტოს არჩევა'}
+          </button>
+          {value && (
+            <button type="button" onClick={() => onChange('')}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-500/10 border border-red-500/20 text-red-400 active:scale-95 transition-all">
+              წაშლა
+            </button>
+          )}
+        </div>
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+    </div>
+  );
+}
+
+// ── Menu Tab ──────────────────────────────────────────────────────────────────
+
+function MenuTab({ user }: { user: any }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState<null | { type: 'add' | 'edit'; item?: any }>(null);
+  const [form, setForm] = useState({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', special: false });
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.restaurantId) return;
+    api.menu.list(user.restaurantId)
+      .then(setItems)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  async function handleSave() {
+    if (!form.name || !form.price || !form.category || !user?.restaurantId) return;
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name,
+        description: form.description || undefined,
+        price: parseFloat(form.price),
+        emoji: form.emoji,
+        imageUrl: form.imageUrl || undefined,
+        category: form.category,
+        special: form.special,
+        restaurantId: user.restaurantId,
+      };
+      if (modal?.type === 'add') {
+        const created = await api.menu.create(payload);
+        setItems((p) => [...p, created]);
+      } else {
+        const updated = await api.menu.update(modal!.item.id, payload);
+        setItems((p) => p.map((i) => i.id === updated.id ? updated : i));
+      }
+      setModal(null);
+    } catch (e: any) { alert(e.message ?? 'შეცდომა'); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('წაიშალოს?')) return;
+    setDeletingId(id);
+    try {
+      await api.menu.remove(id);
+      setItems((p) => p.filter((i) => i.id !== id));
+    } catch (e: any) { alert(e.message); }
+    finally { setDeletingId(null); }
+  }
+
+  function openAdd() {
+    setForm({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', special: false });
+    setModal({ type: 'add' });
+  }
+  function openEdit(item: any) {
+    setForm({ name: item.name, description: item.description ?? '', price: String(item.price), emoji: item.emoji, imageUrl: item.imageUrl ?? '', category: item.category, special: item.special });
+    setModal({ type: 'edit', item });
+  }
+
+  const categories = [...new Set(items.map((i) => i.category))];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-white font-black">მენიუ</h3>
+        <button onClick={openAdd}
+          className="px-4 py-2 rounded-xl text-sm font-bold bg-ocean-600/70 border border-ocean-500/40 text-white active:scale-95 transition-all">
+          + კერძის დამატება
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <span className="w-6 h-6 rounded-full border-2 border-white/15 border-t-white/50 animate-spin" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-12 text-white/30 text-sm">მენიუ ცარიელია</div>
+      ) : (
+        <div className="space-y-4">
+          {categories.map((cat) => (
+            <div key={cat}>
+              <p className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2">{cat}</p>
+              <div className="space-y-2">
+                {items.filter((i) => i.category === cat).map((item) => (
+                  <div key={item.id} className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-3.5 flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/[0.07] border border-white/[0.08] flex items-center justify-center shrink-0">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl">{item.emoji}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold ${item.special ? 'text-amber-300' : 'text-white'}`}>
+                        {item.name}
+                        {item.special && <span className="ml-1.5 text-[10px] bg-amber-400/20 text-amber-300 border border-amber-400/20 rounded-full px-1.5 py-0.5">⭐</span>}
+                      </p>
+                      {item.description && <p className="text-white/35 text-xs truncate">{item.description}</p>}
+                      <p className="text-emerald-300 font-black text-sm mt-0.5">₾{item.price}</p>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <button onClick={() => openEdit(item)}
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white/[0.06] border border-white/[0.10] text-white/70 active:scale-95 transition-all">
+                        ✏️
+                      </button>
+                      <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id}
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-red-600/30 border border-red-500/20 text-red-300 active:scale-95 transition-all disabled:opacity-50">
+                        {deletingId === item.id ? '...' : '🗑️'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#0d1b2a] border border-white/[0.12] rounded-3xl p-6 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-black text-lg">{modal.type === 'add' ? '+ კერძის დამატება' : '✏️ კერძის რედაქტირება'}</h3>
+              <button onClick={() => setModal(null)} className="text-white/40 hover:text-white text-xl transition-colors">✕</button>
+            </div>
+            <div className="space-y-3">
+              <ImagePicker value={form.imageUrl} onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))} />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">სახელი</label>
+                  <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
+                    placeholder="ბურგერი" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">ემოჯი</label>
+                  <input value={form.emoji} onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))}
+                    className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
+                    placeholder="🍔" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">აღწერა</label>
+                <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
+                  placeholder="200გ საქონელი..." />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">ფასი (₾)</label>
+                  <input type="number" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                    className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
+                    placeholder="15" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">კატეგორია</label>
+                  <input value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                    className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
+                    placeholder="სენდვიჩები" />
+                </div>
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer" onClick={() => setForm((f) => ({ ...f, special: !f.special }))}>
+                <div className={`w-10 h-6 rounded-full transition-colors relative ${form.special ? 'bg-amber-500' : 'bg-white/20'}`}>
+                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${form.special ? 'left-5' : 'left-1'}`} />
+                </div>
+                <span className="text-white/70 text-sm">სპეციალური კერძი ⭐</span>
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setModal(null)}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-white/[0.06] border border-white/[0.10] text-white/70 active:scale-95 transition-all">
+                გაუქმება
+              </button>
+              <button onClick={handleSave} disabled={saving}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-ocean-600/70 border border-ocean-500/40 text-white active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                {saving ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : 'შენახვა'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Couriers Tab ──────────────────────────────────────────────────────────────
 
@@ -290,6 +531,12 @@ export default function AdminPage() {
       saveSession(res.token, res.user);
       setCurrentUser(res.user);
       setAuthed(true);
+      if (res.user.role === 'restaurantAdmin' && res.user.restaurantId) {
+        api.restaurants.listAdmin().then((list) => {
+          const r = list.find((x: any) => x.id === res.user.restaurantId);
+          if (r) setRestaurantActive(r.active);
+        }).catch(console.error);
+      }
     } catch {
       setAuthError(true);
     } finally {
@@ -447,22 +694,30 @@ export default function AdminPage() {
       </header>
 
       {/* ── Tabs ────────────────────────────────── */}
-      <div className="relative z-10 px-4 pt-3 pb-1 max-w-4xl mx-auto w-full flex gap-2">
+      <div className="relative z-10 px-4 pt-3 pb-1 max-w-4xl mx-auto w-full flex gap-2 overflow-x-auto scrollbar-hide">
         <button onClick={() => setTab('orders')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'orders' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'orders' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
           📋 შეკვეთები
         </button>
+        <button onClick={() => setTab('menu')}
+          className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'menu' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          🍽️ მენიუ
+        </button>
         <button onClick={() => setTab('couriers')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'couriers' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'couriers' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
           🏍️ კურიერები
         </button>
         <button onClick={() => setTab('stats')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'stats' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'stats' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
           📊 სტატ.
         </button>
       </div>
 
-      {tab === 'couriers' ? (
+      {tab === 'menu' ? (
+        <div className="relative z-10 flex-1 px-4 pb-10 max-w-4xl mx-auto w-full pt-4">
+          <MenuTab user={currentUser} />
+        </div>
+      ) : tab === 'couriers' ? (
         <div className="relative z-10 flex-1 px-4 pb-10 max-w-4xl mx-auto w-full pt-4">
           <CouriersTab user={currentUser} />
         </div>

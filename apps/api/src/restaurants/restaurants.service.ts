@@ -44,6 +44,7 @@ export class RestaurantsService {
         description: item.description ?? undefined,
         price: item.price,
         emoji: item.emoji,
+        imageUrl: item.imageUrl ?? undefined,
         special: item.special,
       });
     }

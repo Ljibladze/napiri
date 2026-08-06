@@ -54,6 +54,7 @@ export class OrdersController {
   }
 
   @Patch(':id/status')
+  @UseGuards(JwtGuard)
   async updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
     const order = await this.ordersService.updateStatus(id, dto.status, dto.courierId);
     this.ordersGateway.emitOrderUpdated(order);

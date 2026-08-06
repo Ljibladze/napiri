@@ -4,6 +4,7 @@ export interface MenuItem {
   description?: string;
   price: number;
   emoji: string;
+  imageUrl?: string;
   special?: boolean;
 }
 

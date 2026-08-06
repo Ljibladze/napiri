@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { api, saveSession, clearSession, getToken, getUser } from '@/lib/api';
+import { uploadImage } from '@/lib/cloudinary';
 import { WaveBackground } from '@/components/layout/WaveBackground';
 
 type Tab = 'overview' | 'restaurants' | 'menu' | 'users' | 'couriers' | 'stats' | 'qr';
@@ -65,6 +66,35 @@ function Btn({ variant = 'primary', children, className = '', ...props }: { vari
   return <button {...props} className={`px-4 py-2.5 rounded-xl text-sm font-bold border transition-all active:scale-95 disabled:opacity-50 ${v[variant]} ${className}`}>{children}</button>;
 }
 function Spinner() { return <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin inline-block" />; }
+function ImagePicker({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try { onChange(await uploadImage(file)); }
+    catch (err: any) { alert(err.message ?? 'ატვირთვა ვერ მოხერხდა'); }
+    finally { setUploading(false); if (inputRef.current) inputRef.current.value = ''; }
+  }
+  return (
+    <div className="space-y-1.5">
+      <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">სურათი</label>
+      <div className="flex items-center gap-3">
+        <div className="w-16 h-16 rounded-xl border border-white/[0.10] bg-white/[0.05] overflow-hidden flex items-center justify-center shrink-0">
+          {value ? <img src={value} alt="" className="w-full h-full object-cover" /> : <span className="text-white/20 text-2xl">🖼️</span>}
+        </div>
+        <div className="flex flex-col gap-1.5 flex-1">
+          <Btn variant="ghost" type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="text-xs flex items-center gap-1.5 justify-center">
+            {uploading ? <Spinner /> : '📁'}{uploading ? 'იტვირთება...' : 'ფოტო'}
+          </Btn>
+          {value && <Btn variant="danger" type="button" onClick={() => onChange('')} className="text-xs">წაშლა</Btn>}
+        </div>
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+    </div>
+  );
+}
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }: { onLogin: () => void }) {
@@ -241,7 +271,7 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
   const [items, setItems] = useState<any[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [modal, setModal] = useState<null | { type: 'add' | 'edit'; item?: any }>(null);
-  const [form, setForm] = useState({ name: '', description: '', price: '', emoji: '🍽️', category: '', special: false });
+  const [form, setForm] = useState({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', special: false });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -254,7 +284,7 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
     if (!form.name || !form.price || !form.category || !selectedR) return;
     setSaving(true);
     try {
-      const payload = { name: form.name, description: form.description || undefined, price: parseFloat(form.price), emoji: form.emoji, category: form.category, special: form.special, restaurantId: selectedR.id };
+      const payload = { name: form.name, description: form.description || undefined, price: parseFloat(form.price), emoji: form.emoji, imageUrl: form.imageUrl || undefined, category: form.category, special: form.special, restaurantId: selectedR.id };
       if (modal?.type === 'add') { const created = await api.menu.create(payload); setItems((p) => [...p, created]); }
       else { const u = await api.menu.update(modal!.item.id, payload); setItems((p) => p.map((i) => i.id === u.id ? u : i)); }
       setModal(null);
@@ -276,10 +306,10 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
       <div>
         <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">რესტორანი</p>
         <div className="flex flex-wrap gap-2">
-          {restaurants.filter((r) => r.active).map((r) => (
+          {restaurants.map((r) => (
             <button key={r.id} onClick={() => loadItems(r)}
-              className={`px-3 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 flex items-center gap-1.5 ${selectedR?.id === r.id ? 'bg-ocean-600/50 border-ocean-500/50 text-white' : 'bg-white/[0.05] border-white/[0.10] text-white/60'}`}>
-              <span>{r.emoji}</span><span>{r.name}</span>
+              className={`px-3 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 flex items-center gap-1.5 ${selectedR?.id === r.id ? 'bg-ocean-600/50 border-ocean-500/50 text-white' : 'bg-white/[0.05] border-white/[0.10] text-white/60'} ${!r.active ? 'opacity-60' : ''}`}>
+              <span>{r.emoji}</span><span>{r.name}{!r.active && ' (off)'}</span>
             </button>
           ))}
         </div>
@@ -288,7 +318,7 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-white font-black">{selectedR.emoji} {selectedR.name}</h3>
-            <Btn onClick={() => { setForm({ name: '', description: '', price: '', emoji: '🍽️', category: '', special: false }); setModal({ type: 'add' }); }}>+ დამატება</Btn>
+            <Btn onClick={() => { setForm({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', special: false }); setModal({ type: 'add' }); }}>+ დამატება</Btn>
           </div>
           {loadingItems ? <div className="flex justify-center py-8"><Spinner /></div> : categories.map((cat) => (
             <div key={cat}>
@@ -296,14 +326,16 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
               <div className="space-y-2">
                 {items.filter((i) => i.category === cat).map((item) => (
                   <Card key={item.id} className="flex items-center gap-3 py-3">
-                    <span className="text-2xl">{item.emoji}</span>
+                    <div className="w-11 h-11 rounded-xl overflow-hidden bg-white/[0.07] border border-white/[0.08] flex items-center justify-center shrink-0">
+                      {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-xl">{item.emoji}</span>}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-bold ${item.special ? 'text-amber-300' : 'text-white'}`}>{item.name}{item.special && <span className="ml-1.5 text-[10px] bg-amber-400/20 text-amber-300 border border-amber-400/20 rounded-full px-1.5 py-0.5">⭐</span>}</p>
                       {item.description && <p className="text-white/35 text-xs truncate">{item.description}</p>}
                     </div>
                     <span className="text-emerald-300 font-black text-sm shrink-0">₾{item.price}</span>
                     <div className="flex gap-1.5 shrink-0">
-                      <Btn variant="ghost" className="px-2.5 py-1.5 text-xs" onClick={() => { setForm({ name: item.name, description: item.description ?? '', price: String(item.price), emoji: item.emoji, category: item.category, special: item.special }); setModal({ type: 'edit', item }); }}>✏️</Btn>
+                      <Btn variant="ghost" className="px-2.5 py-1.5 text-xs" onClick={() => { setForm({ name: item.name, description: item.description ?? '', price: String(item.price), emoji: item.emoji, imageUrl: item.imageUrl ?? '', category: item.category, special: item.special }); setModal({ type: 'edit', item }); }}>✏️</Btn>
                       <Btn variant="danger" className="px-2.5 py-1.5 text-xs" disabled={deletingId === item.id} onClick={() => handleDelete(item.id)}>{deletingId === item.id ? '...' : '🗑️'}</Btn>
                     </div>
                   </Card>
@@ -316,6 +348,7 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
       {modal && (
         <Modal title={modal.type === 'add' ? '+ მენიუს დამატება' : '✏️ რედაქტირება'} onClose={() => setModal(null)}>
           <div className="space-y-3">
+            <ImagePicker value={form.imageUrl} onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))} />
             <Inp label="სახელი" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="ბურგერი" />
             <Inp label="აღწერა" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="200გ საქონელი..." />
             <div className="grid grid-cols-2 gap-3">
@@ -601,9 +634,7 @@ function QRTab() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [qrReady, setQrReady] = useState(false);
 
-  const URL_BASE = process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '').replace('napiri.onrender.com', 'napiri-web.vercel.app')
-    : (typeof window !== 'undefined' ? window.location.origin : '');
+  const URL_BASE = typeof window !== 'undefined' ? window.location.origin : '';
 
   async function generate() {
     if (!loungeId) return;

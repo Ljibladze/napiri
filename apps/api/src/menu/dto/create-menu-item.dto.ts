@@ -7,6 +7,9 @@ export class CreateMenuItemDto {
   @IsOptional() @IsString()
   description?: string;
 
+  @IsOptional() @IsString()
+  imageUrl?: string;
+
   @IsNumber()
   price: number;
 

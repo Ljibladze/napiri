@@ -95,9 +95,11 @@ export function MenuView({
                   ? 'bg-ocean-600/[0.08] border border-ocean-600/[0.25] shadow-[0_0_20px_rgba(0,180,216,0.1)]'
                   : 'bg-white/[0.05] border border-white/[0.07]',
               ].join(' ')}>
-                {/* Emoji tile */}
-                <div className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-3xl ${item.special ? 'bg-amber-400/[0.15] border border-amber-400/[0.3]' : 'bg-white/[0.08] border border-white/[0.08]'}`}>
-                  {item.emoji}
+                {/* Image / Emoji tile */}
+                <div className={`shrink-0 w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center text-3xl ${item.special ? 'bg-amber-400/[0.15] border border-amber-400/[0.3]' : 'bg-white/[0.08] border border-white/[0.08]'}`}>
+                  {item.imageUrl
+                    ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    : item.emoji}
                 </div>
 
                 {/* Info */}
