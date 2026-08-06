@@ -522,68 +522,113 @@ function UsersTab({ restaurants }: { restaurants: any[] }) {
   );
 }
 
-// ── Couriers Stats ────────────────────────────────────────────────────────────
+// ── Couriers Tab ─────────────────────────────────────────────────────────────
+function AddRestaurantDropdown({ courierId, available, onAdd }: {
+  courierId: string; available: any[]; onAdd: (cId: string, rId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (available.length === 0) return null;
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 text-xs bg-ocean-600/20 border border-ocean-500/30 text-sky-400 rounded-lg px-2 py-0.5 font-bold active:scale-95 transition-all">
+        + რესტ.
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1 z-20 bg-[#0d1b2a] border border-white/[0.12] rounded-xl p-1 shadow-xl min-w-[150px]">
+            {available.map((r: any) => (
+              <button key={r.id} onClick={() => { onAdd(courierId, r.id); setOpen(false); }}
+                className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-white/70 hover:text-white hover:bg-white/[0.07] transition-all">
+                {r.emoji} {r.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CouriersTab({ restaurants }: { restaurants: any[] }) {
+  const [couriers, setCouriers] = useState<any[]>([]);
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterR, setFilterR] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { setStats(await api.orders.courierStats(filterR || undefined)); }
-    catch (e: any) { console.error(e); }
-    finally { setLoading(false); }
-  }, [filterR]);
+  useEffect(() => {
+    api.users.list()
+      .then((all) => setCouriers(all.filter((u: any) => u.role === 'courier')))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+    api.orders.courierStats().then(setStats).catch(console.error);
+  }, []);
 
-  useEffect(() => { load(); }, [filterR]);
+  function getStat(courierId: string) { return stats.find((s) => s.courierId === courierId); }
+
+  function availableFor(courier: any) {
+    const assigned: string[] = courier.restaurantIds ?? [];
+    return restaurants.filter((r: any) => !assigned.includes(r.id));
+  }
+
+  async function handleAdd(courierId: string, restaurantId: string) {
+    try {
+      const updated = await api.users.addRestaurant(courierId, restaurantId);
+      setCouriers((p) => p.map((c) => c.id === courierId ? { ...c, restaurantIds: updated.restaurantIds } : c));
+    } catch (e: any) { alert(e.message ?? 'შეცდომა'); }
+  }
+
+  async function handleRemove(courierId: string, restaurantId: string) {
+    try {
+      const updated = await api.users.removeRestaurant(courierId, restaurantId);
+      setCouriers((p) => p.map((c) => c.id === courierId ? { ...c, restaurantIds: updated.restaurantIds } : c));
+    } catch (e: any) { alert(e.message ?? 'შეცდომა'); }
+  }
+
+  if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
+  if (couriers.length === 0) return <div className="text-center py-16 text-white/30 text-sm">კურიერი არ დარეგისტრირებულა</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="text-white font-black">კურიერების სტატისტიკა</h3>
-        <select value={filterR} onChange={(e) => setFilterR(e.target.value)}
-          style={{ backgroundColor: '#0d1b2a', color: 'white' }}
-          className="border border-white/[0.10] rounded-xl px-3 py-2 text-sm focus:outline-none">
-          <option value="">ყველა რესტორანი</option>
-          {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-        </select>
-      </div>
-      {loading ? <div className="flex justify-center py-12"><Spinner /></div> : stats.length === 0 ? (
-        <div className="text-center py-12 text-white/30 text-sm">ჩაბარებული შეკვეთა ჯერ არ არის</div>
-      ) : (
-        <div className="space-y-3">
-          {stats.map((c, i) => (
-            <Card key={c.courierId} className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-ocean-600/20 border border-ocean-500/30 flex items-center justify-center font-black text-white text-lg">
-                  {i + 1}
-                </div>
-                <div className="flex-1">
-                  <p className="text-white font-black">🏍️ {c.username}</p>
-                  {c.restaurantId && <p className="text-white/35 text-xs">{restaurants.find((r) => r.id === c.restaurantId)?.name}</p>}
-                </div>
-                <div className="text-right">
-                  <div className="text-sky-300 font-black text-lg">{c.deliveries}</div>
-                  <div className="text-white/30 text-[10px]">ჩაბარება</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-emerald-300 font-black text-sm">₾{c.revenue.toFixed(0)}</div>
-                  <div className="text-white/30 text-[10px]">ჯამი</div>
-                </div>
+    <div className="space-y-3">
+      {couriers.map((c) => {
+        const s = getStat(c.id);
+        const assigned: string[] = c.restaurantIds ?? [];
+        return (
+          <Card key={c.id} className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-ocean-600/20 border border-ocean-500/30 flex items-center justify-center text-xl shrink-0">🏍️</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-black">{c.username}</p>
+                <p className="text-white/35 text-xs">{s ? `${s.deliveries} ჩაბარება · ₾${s.revenue.toFixed(0)}` : 'ჩაბარება: 0'}</p>
               </div>
-              {c.byRestaurant?.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-2 border-t border-white/[0.05]">
-                  {c.byRestaurant.map((r: any) => (
-                    <span key={r.id} className="text-xs bg-white/[0.06] border border-white/[0.08] rounded-lg px-2.5 py-1 text-white/60">
-                      {r.emoji} {r.name}: <span className="text-sky-300 font-bold">{r.count}</span>
-                    </span>
-                  ))}
+              {s?.byRestaurant?.map((r: any) => (
+                <div key={r.id} className="text-right shrink-0">
+                  <div className="text-sky-300 font-black text-sm">{r.count}</div>
+                  <div className="text-white/30 text-[10px]">{r.emoji}</div>
                 </div>
-              )}
-            </Card>
-          ))}
-        </div>
-      )}
+              ))}
+            </div>
+            {/* Restaurant assignment chips */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/[0.05]">
+              {assigned.map((rid) => {
+                const r = restaurants.find((r: any) => r.id === rid);
+                const label = r ? `${r.emoji} ${r.name}` : rid.slice(0, 8);
+                return (
+                  <span key={rid} className="inline-flex items-center gap-1 text-xs bg-white/[0.10] border border-white/[0.15] rounded-lg pl-2.5 pr-1 py-1 text-white/80">
+                    {label}
+                    <button onClick={() => handleRemove(c.id, rid)}
+                      className="ml-0.5 w-4 h-4 flex items-center justify-center rounded bg-white/[0.10] hover:bg-red-500/40 text-white/60 hover:text-white transition-all text-[13px] font-black leading-none">
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+              <AddRestaurantDropdown courierId={c.id} available={availableFor(c)} onAdd={handleAdd} />
+              {assigned.length === 0 && <span className="text-white/20 text-xs italic">რესტ. არ არის</span>}
+            </div>
+          </Card>
+        );
+      })}
     </div>
   );
 }
