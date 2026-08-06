@@ -205,19 +205,11 @@ function MenuTab({ user }: { user: any }) {
             </div>
             <div className="space-y-3">
               <ImagePicker value={form.imageUrl} onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))} />
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">სახელი</label>
-                  <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                    className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
-                    placeholder="ბურგერი" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">ემოჯი</label>
-                  <input value={form.emoji} onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))}
-                    className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
-                    placeholder="🍔" />
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">სახელი</label>
+                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
+                  placeholder="ბურგერი" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">აღწერა</label>

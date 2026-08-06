@@ -353,10 +353,7 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
             <ImagePicker value={form.imageUrl} onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))} />
             <Inp label="სახელი" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="ბურგერი" />
             <Inp label="აღწერა" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="200გ საქონელი..." />
-            <div className="grid grid-cols-2 gap-3">
-              <Inp label="ფასი (₾)" type="number" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder="15" />
-              <Inp label="ემოჯი" value={form.emoji} onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))} placeholder="🍔" />
-            </div>
+            <Inp label="ფასი (₾)" type="number" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder="15" />
             <div className="space-y-1.5">
               <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">კატეგორია</label>
               <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
