@@ -271,7 +271,7 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
   const [items, setItems] = useState<any[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [modal, setModal] = useState<null | { type: 'add' | 'edit'; item?: any }>(null);
-  const [form, setForm] = useState({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', special: false });
+  const [form, setForm] = useState({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', newCategory: '', special: false });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -281,10 +281,12 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
   }, []);
 
   async function handleSave() {
-    if (!form.name || !form.price || !form.category || !selectedR) return;
+    const finalCategory = form.category === '__new__' ? form.newCategory : form.category;
+    if (!form.name || !form.price || !finalCategory || !selectedR) return;
     setSaving(true);
     try {
-      const payload = { name: form.name, description: form.description || undefined, price: parseFloat(form.price), emoji: form.emoji, imageUrl: form.imageUrl || undefined, category: form.category, special: form.special, restaurantId: selectedR.id };
+      const finalCategory = form.category === '__new__' ? form.newCategory : form.category;
+      const payload = { name: form.name, description: form.description || undefined, price: parseFloat(form.price), emoji: form.emoji, imageUrl: form.imageUrl || undefined, category: finalCategory, special: form.special, restaurantId: selectedR.id };
       if (modal?.type === 'add') { const created = await api.menu.create(payload); setItems((p) => [...p, created]); }
       else { const u = await api.menu.update(modal!.item.id, payload); setItems((p) => p.map((i) => i.id === u.id ? u : i)); }
       setModal(null);
@@ -318,7 +320,7 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-white font-black">{selectedR.emoji} {selectedR.name}</h3>
-            <Btn onClick={() => { setForm({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', special: false }); setModal({ type: 'add' }); }}>+ დამატება</Btn>
+            <Btn onClick={() => { setForm({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', newCategory: '', special: false }); setModal({ type: 'add' }); }}>+ დამატება</Btn>
           </div>
           {loadingItems ? <div className="flex justify-center py-8"><Spinner /></div> : categories.map((cat) => (
             <div key={cat}>
@@ -335,7 +337,7 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
                     </div>
                     <span className="text-emerald-300 font-black text-sm shrink-0">₾{item.price}</span>
                     <div className="flex gap-1.5 shrink-0">
-                      <Btn variant="ghost" className="px-2.5 py-1.5 text-xs" onClick={() => { setForm({ name: item.name, description: item.description ?? '', price: String(item.price), emoji: item.emoji, imageUrl: item.imageUrl ?? '', category: item.category, special: item.special }); setModal({ type: 'edit', item }); }}>✏️</Btn>
+                      <Btn variant="ghost" className="px-2.5 py-1.5 text-xs" onClick={() => { setForm({ name: item.name, description: item.description ?? '', price: String(item.price), emoji: item.emoji, imageUrl: item.imageUrl ?? '', category: item.category, newCategory: '', special: item.special }); setModal({ type: 'edit', item }); }}>✏️</Btn>
                       <Btn variant="danger" className="px-2.5 py-1.5 text-xs" disabled={deletingId === item.id} onClick={() => handleDelete(item.id)}>{deletingId === item.id ? '...' : '🗑️'}</Btn>
                     </div>
                   </Card>
@@ -355,7 +357,21 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
               <Inp label="ფასი (₾)" type="number" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder="15" />
               <Inp label="ემოჯი" value={form.emoji} onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))} placeholder="🍔" />
             </div>
-            <Inp label="კატეგორია" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} placeholder="სენდვიჩები" />
+            <div className="space-y-1.5">
+              <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">კატეგორია</label>
+              <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                style={{ backgroundColor: '#0d1b2a', color: 'white' }}
+                className="w-full border border-white/[0.10] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all">
+                <option value="">-- აირჩიე --</option>
+                {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                <option value="__new__">+ ახალი კატეგორია</option>
+              </select>
+              {form.category === '__new__' && (
+                <input value={form.newCategory} onChange={(e) => setForm((f) => ({ ...f, newCategory: e.target.value }))}
+                  className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all mt-2"
+                  placeholder="კატეგორიის სახელი" autoFocus />
+              )}
+            </div>
             <label className="flex items-center gap-3 cursor-pointer" onClick={() => setForm((f) => ({ ...f, special: !f.special }))}>
               <div className={`w-10 h-6 rounded-full transition-colors relative ${form.special ? 'bg-amber-500' : 'bg-white/20'}`}>
                 <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${form.special ? 'left-5' : 'left-1'}`} />

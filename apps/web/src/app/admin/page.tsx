@@ -79,7 +79,7 @@ function MenuTab({ user }: { user: any }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<null | { type: 'add' | 'edit'; item?: any }>(null);
-  const [form, setForm] = useState({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', special: false });
+  const [form, setForm] = useState({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', newCategory: '', special: false });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -92,7 +92,8 @@ function MenuTab({ user }: { user: any }) {
   }, [user]);
 
   async function handleSave() {
-    if (!form.name || !form.price || !form.category || !user?.restaurantId) return;
+    const finalCategory = form.category === '__new__' ? form.newCategory : form.category;
+    if (!form.name || !form.price || !finalCategory || !user?.restaurantId) return;
     setSaving(true);
     try {
       const payload = {
@@ -101,7 +102,7 @@ function MenuTab({ user }: { user: any }) {
         price: parseFloat(form.price),
         emoji: form.emoji,
         imageUrl: form.imageUrl || undefined,
-        category: form.category,
+        category: form.category === '__new__' ? form.newCategory : form.category,
         special: form.special,
         restaurantId: user.restaurantId,
       };
@@ -128,11 +129,11 @@ function MenuTab({ user }: { user: any }) {
   }
 
   function openAdd() {
-    setForm({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', special: false });
+    setForm({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', newCategory: '', special: false });
     setModal({ type: 'add' });
   }
   function openEdit(item: any) {
-    setForm({ name: item.name, description: item.description ?? '', price: String(item.price), emoji: item.emoji, imageUrl: item.imageUrl ?? '', category: item.category, special: item.special });
+    setForm({ name: item.name, description: item.description ?? '', price: String(item.price), emoji: item.emoji, imageUrl: item.imageUrl ?? '', category: item.category, newCategory: '', special: item.special });
     setModal({ type: 'edit', item });
   }
 
@@ -233,9 +234,18 @@ function MenuTab({ user }: { user: any }) {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-white/50 text-xs font-semibold uppercase tracking-wider">კატეგორია</label>
-                  <input value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                    className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all"
-                    placeholder="სენდვიჩები" />
+                  <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                    style={{ backgroundColor: '#0d1b2a', color: 'white' }}
+                    className="w-full border border-white/[0.10] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all">
+                    <option value="">-- აირჩიე --</option>
+                    {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                    <option value="__new__">+ ახალი კატეგორია</option>
+                  </select>
+                  {form.category === '__new__' && (
+                    <input value={form.newCategory} onChange={(e) => setForm((f) => ({ ...f, newCategory: e.target.value }))}
+                      className="w-full bg-white/[0.07] border border-white/[0.10] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/50 transition-all mt-2"
+                      placeholder="კატეგორიის სახელი" autoFocus />
+                  )}
                 </div>
               </div>
               <label className="flex items-center gap-3 cursor-pointer" onClick={() => setForm((f) => ({ ...f, special: !f.special }))}>
