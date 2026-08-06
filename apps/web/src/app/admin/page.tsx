@@ -501,6 +501,7 @@ export default function AdminPage() {
   const [connected, setConnected] = useState(false);
   const [tab, setTab] = useState<AdminTab>('orders');
   const [restaurantActive, setRestaurantActive] = useState<boolean | null>(null);
+  const [restaurantName, setRestaurantName] = useState<string>('');
   const [togglingRestaurant, setTogglingRestaurant] = useState(false);
 
   useEffect(() => {
@@ -512,7 +513,7 @@ export default function AdminPage() {
       if (user.role === 'restaurantAdmin' && user.restaurantId) {
         api.restaurants.listAdmin().then((list) => {
           const r = list.find((x: any) => x.id === user.restaurantId);
-          if (r) setRestaurantActive(r.active);
+          if (r) { setRestaurantActive(r.active); setRestaurantName(r.name); }
         }).catch(console.error);
       }
     }
@@ -666,7 +667,7 @@ export default function AdminPage() {
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400 dot-live' : 'bg-red-400'}`} />
                 <span className="text-white/35 text-[11px] font-medium">
-                  {connected ? `Live · ${currentUser?.username}` : 'კავშირი ეწყვეტა...'}
+                  {connected ? `Live · ${currentUser?.role === 'restaurantAdmin' ? (restaurantName || currentUser?.username) : 'SuperAdmin'}` : 'კავშირი ეწყვეტა...'}
                 </span>
               </div>
             </div>
