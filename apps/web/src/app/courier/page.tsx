@@ -91,7 +91,7 @@ function OrderRow({ order, isNew, onDeliver }: { order: Order; isNew: boolean; o
         {order.status === 'delivering' && onDeliver && (
           <button onClick={handleDeliver} disabled={delivering}
             className="px-4 py-2 rounded-xl text-xs font-black text-white transition-all active:scale-95 disabled:opacity-60 flex items-center gap-1.5 bg-emerald-600/80 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.2)]">
-            {delivering ? <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : '✓ ჩავბარე'}
+            {delivering ? <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : '✓ ჩავაბარე'}
           </button>
         )}
       </div>
