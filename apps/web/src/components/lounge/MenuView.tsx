@@ -23,6 +23,7 @@ export function MenuView({
   const { t } = useLang();
   const categories = Object.keys(restaurant.menu);
   const [activeCategory, setActiveCategory] = useState(categories[0] ?? '');
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const getQty = (id: string) => cartItems.find((i) => i.id === id)?.quantity ?? 0;
 
@@ -96,7 +97,10 @@ export function MenuView({
                   : 'bg-white/[0.05] border border-white/[0.07]',
               ].join(' ')}>
                 {/* Image / Emoji tile */}
-                <div className={`shrink-0 w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center text-3xl ${item.special ? 'bg-amber-400/[0.15] border border-amber-400/[0.3]' : 'bg-white/[0.08] border border-white/[0.08]'}`}>
+                <div
+                  className={`shrink-0 w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center text-3xl ${item.special ? 'bg-amber-400/[0.15] border border-amber-400/[0.3]' : 'bg-white/[0.08] border border-white/[0.08]'} ${item.imageUrl ? 'cursor-zoom-in active:scale-95 transition-transform' : ''}`}
+                  onClick={() => item.imageUrl && setZoomedImage(item.imageUrl)}
+                >
                   {item.imageUrl
                     ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                     : item.emoji}
@@ -144,6 +148,27 @@ export function MenuView({
           );
         })}
       </div>
+
+      {/* ── Image zoom lightbox ─────────────────────────── */}
+      {zoomedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setZoomedImage(null)}
+        >
+          <img
+            src={zoomedImage}
+            alt=""
+            className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setZoomedImage(null)}
+            className="absolute top-5 right-5 w-10 h-10 rounded-full bg-black/50 text-white text-xl flex items-center justify-center border border-white/20 active:scale-90 transition-transform"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* ── Sticky cart CTA ─────────────────────────────── */}
       {cartCount > 0 && (
