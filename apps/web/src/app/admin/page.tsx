@@ -700,10 +700,12 @@ export default function AdminPage() {
           className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'orders' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
           📋 შეკვეთები
         </button>
-        <button onClick={() => setTab('menu')}
-          className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'menu' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
-          🍽️ მენიუ
-        </button>
+        {currentUser?.role === 'restaurantAdmin' && (
+          <button onClick={() => setTab('menu')}
+            className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'menu' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+            🍽️ მენიუ
+          </button>
+        )}
         <button onClick={() => setTab('couriers')}
           className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'couriers' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
           🏍️ კურიერები
