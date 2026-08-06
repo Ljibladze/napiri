@@ -81,6 +81,7 @@ function MenuTab({ user }: { user: any }) {
   const [modal, setModal] = useState<null | { type: 'add' | 'edit'; item?: any }>(null);
   const [form, setForm] = useState({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', newCategory: '', special: false });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,8 +93,12 @@ function MenuTab({ user }: { user: any }) {
   }, [user]);
 
   async function handleSave() {
+    setSaveError('');
     const finalCategory = form.category === '__new__' ? form.newCategory : form.category;
-    if (!form.name || !form.price || !finalCategory || !user?.restaurantId) return;
+    if (!form.name.trim()) { setSaveError('სახელი სავალდებულოა'); return; }
+    if (!form.price) { setSaveError('ფასი სავალდებულოა'); return; }
+    if (!finalCategory.trim()) { setSaveError('კატეგორია სავალდებულოა'); return; }
+    if (!user?.restaurantId) { setSaveError('მომხმარებელს რესტორანი არ აქვს მიბმული'); return; }
     setSaving(true);
     try {
       const payload = {
@@ -102,7 +107,7 @@ function MenuTab({ user }: { user: any }) {
         price: parseFloat(form.price),
         emoji: form.emoji,
         imageUrl: form.imageUrl || undefined,
-        category: form.category === '__new__' ? form.newCategory : form.category,
+        category: finalCategory,
         special: form.special,
         restaurantId: user.restaurantId,
       };
@@ -114,7 +119,7 @@ function MenuTab({ user }: { user: any }) {
         setItems((p) => p.map((i) => i.id === updated.id ? updated : i));
       }
       setModal(null);
-    } catch (e: any) { alert(e.message ?? 'შეცდომა'); }
+    } catch (e: any) { setSaveError(e.message ?? 'შეცდომა — სცადე თავიდან'); }
     finally { setSaving(false); }
   }
 
@@ -129,10 +134,12 @@ function MenuTab({ user }: { user: any }) {
   }
 
   function openAdd() {
+    setSaveError('');
     setForm({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', newCategory: '', special: false });
     setModal({ type: 'add' });
   }
   function openEdit(item: any) {
+    setSaveError('');
     setForm({ name: item.name, description: item.description ?? '', price: String(item.price), emoji: item.emoji, imageUrl: item.imageUrl ?? '', category: item.category, newCategory: '', special: item.special });
     setModal({ type: 'edit', item });
   }
@@ -201,8 +208,13 @@ function MenuTab({ user }: { user: any }) {
           <div className="w-full max-w-sm bg-[#0d1b2a] border border-white/[0.12] rounded-3xl p-6 space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="text-white font-black text-lg">{modal.type === 'add' ? '+ კერძის დამატება' : '✏️ კერძის რედაქტირება'}</h3>
-              <button onClick={() => setModal(null)} className="text-white/40 hover:text-white text-xl transition-colors">✕</button>
+              <button onClick={() => { setModal(null); setSaveError(''); }} className="text-white/40 hover:text-white text-xl transition-colors">✕</button>
             </div>
+            {saveError && (
+              <div className="text-red-400 text-xs font-semibold bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">
+                ⚠️ {saveError}
+              </div>
+            )}
             <div className="space-y-3">
               <ImagePicker value={form.imageUrl} onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))} />
               <div className="space-y-1.5">
