@@ -190,17 +190,17 @@ function RestaurantsTab() {
   const [restaurants, setRestaurants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<null | { type: 'add' | 'edit'; r?: any }>(null);
-  const [form, setForm] = useState({ id: '', name: '', description: '', imageUrl: '', coverClass: 'grad-olympos', rating: '4.5', deliveryTime: '15-20 წთ', tags: '' });
+  const [form, setForm] = useState({ id: '', name: '', description: '', coverClass: 'grad-olympos', rating: '4.5', deliveryTime: '15-20 წთ', tags: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { api.restaurants.listAdmin().then(setRestaurants).catch(console.error).finally(() => setLoading(false)); }, []);
 
   function openAdd() {
-    setForm({ id: '', name: '', description: '', imageUrl: '', coverClass: 'grad-olympos', rating: '4.5', deliveryTime: '15-20 წთ', tags: '' });
+    setForm({ id: '', name: '', description: '', coverClass: 'grad-olympos', rating: '4.5', deliveryTime: '15-20 წთ', tags: '' });
     setModal({ type: 'add' });
   }
   function openEdit(r: any) {
-    setForm({ id: r.id, name: r.name, description: r.description, imageUrl: r.imageUrl ?? '', coverClass: r.coverClass, rating: String(r.rating), deliveryTime: r.deliveryTime, tags: r.tags?.join(', ') ?? '' });
+    setForm({ id: r.id, name: r.name, description: r.description, coverClass: r.coverClass, rating: String(r.rating), deliveryTime: r.deliveryTime, tags: r.tags?.join(', ') ?? '' });
     setModal({ type: 'edit', r });
   }
 
@@ -211,7 +211,6 @@ function RestaurantsTab() {
       const payload = {
         id: form.id || String(Date.now()),
         name: form.name, description: form.description, emoji: '🏪',
-        imageUrl: form.imageUrl || undefined,
         coverClass: form.coverClass, rating: parseFloat(form.rating) || 4.5,
         deliveryTime: form.deliveryTime,
         tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
@@ -246,7 +245,7 @@ function RestaurantsTab() {
           {restaurants.map((r) => (
             <Card key={r.id} className="flex items-center gap-3 py-3">
               <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/[0.07] border border-white/[0.08] flex items-center justify-center shrink-0">
-                {r.imageUrl ? <img src={r.imageUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl">🏪</span>}
+                <span className="text-2xl">{r.emoji || '🏪'}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-bold">{r.name}</p>
@@ -266,7 +265,6 @@ function RestaurantsTab() {
       {modal && (
         <Modal title={modal.type === 'add' ? '+ ახალი რესტორანი' : '✏️ რედაქტირება'} onClose={() => setModal(null)}>
           <div className="space-y-3">
-            <ImagePicker value={form.imageUrl} onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))} />
             <Inp label="სახელი" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="ოლიმპოსი" />
             <Inp label="აღწერა" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="ქართული სამზარეულო" />
             <div className="grid grid-cols-2 gap-3">

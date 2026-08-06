@@ -23,7 +23,6 @@ model Restaurant {
   name         String
   description  String
   emoji        String
-  imageUrl     String?
   coverClass   String
   rating       Float
   deliveryTime String

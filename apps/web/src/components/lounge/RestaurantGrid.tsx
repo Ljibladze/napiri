@@ -21,21 +21,14 @@ export function RestaurantGrid({ restaurants, onSelect, activeRestaurantId }: Re
         >
           {/* ── Gradient header ─────────────────────── */}
           <div className={`${r.coverClass} relative h-52 flex items-center justify-center overflow-hidden`}>
-            {r.imageUrl ? (
-              <>
-                <img src={r.imageUrl} alt={r.name} className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/20" />
-              </>
-            ) : (
-              <>
-                <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/[0.12]" />
-                <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full bg-black/[0.12]" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-32 rounded-full bg-white/[0.06] blur-2xl" />
-                <span className="relative z-10 text-[90px] leading-none select-none group-hover:scale-110 transition-transform duration-500 drop-shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
-                  {r.emoji}
-                </span>
-              </>
-            )}
+            <>
+              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/[0.12]" />
+              <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full bg-black/[0.12]" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-32 rounded-full bg-white/[0.06] blur-2xl" />
+              <span className="relative z-10 text-[90px] leading-none select-none group-hover:scale-110 transition-transform duration-500 drop-shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+                {r.emoji}
+              </span>
+            </>
 
             {/* Rating badge */}
             <div className="absolute top-3 left-3 flex items-center gap-1 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/[0.15]">
