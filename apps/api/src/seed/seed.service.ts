@@ -48,11 +48,7 @@ export class SeedService implements OnModuleInit {
     const superAdminPass = process.env.SUPER_ADMIN_PASS ?? 'napiri2024';
 
     const toSeed = [
-      { username: 'superadmin',  password: superAdminPass, role: 'superAdmin',      restaurantId: null },
-      { username: 'courier1',    password: 'juvaxa123',    role: 'courier',          restaurantId: null },
-      { username: 'olympos',     password: 'juvaxa123',    role: 'restaurantAdmin',  restaurantId: '1' },
-      { username: 'bluebay',     password: 'juvaxa123',    role: 'restaurantAdmin',  restaurantId: '2' },
-      { username: 'sanapiro',    password: 'juvaxa123',    role: 'restaurantAdmin',  restaurantId: '3' },
+      { username: 'superadmin', password: superAdminPass, role: 'superAdmin', restaurantId: null },
     ];
 
     for (const u of toSeed) {
