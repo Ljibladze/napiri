@@ -84,7 +84,7 @@ function MenuTab({ user }: { user: any }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.restaurantId) return;
+    if (!user?.restaurantId) { setLoading(false); return; }
     api.menu.list(user.restaurantId)
       .then(setItems)
       .catch(console.error)
