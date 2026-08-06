@@ -201,11 +201,19 @@ export default function LoungePage() {
             )}
 
             <div className="px-4 pb-8">
-              <RestaurantGrid
-                restaurants={restaurants}
-                onSelect={handleSelectRestaurant}
-                activeRestaurantId={cart.restaurantId}
-              />
+              {restaurants.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-4 py-20 text-center px-6">
+                  <span className="text-6xl">🌙</span>
+                  <h2 className="text-white font-black text-xl">ახლა დახურულია</h2>
+                  <p className="text-white/40 text-sm">რესტორნები ამ დროისთვის არ მუშაობს.<br/>მოგვიანებით სცადეთ.</p>
+                </div>
+              ) : (
+                <RestaurantGrid
+                  restaurants={restaurants}
+                  onSelect={handleSelectRestaurant}
+                  activeRestaurantId={cart.restaurantId}
+                />
+              )}
             </div>
           </div>
         )}

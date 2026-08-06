@@ -9,26 +9,26 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem('napiri_jwt');
+  return localStorage.getItem('napiri_jwt');
 }
 
 export function getUser(): any | null {
   if (typeof window === 'undefined') return null;
-  const s = sessionStorage.getItem('napiri_user');
+  const s = localStorage.getItem('napiri_user');
   return s ? JSON.parse(s) : null;
 }
 
 export function saveSession(token: string, user: any) {
-  sessionStorage.setItem('napiri_jwt', token);
-  sessionStorage.setItem('napiri_user', JSON.stringify(user));
+  localStorage.setItem('napiri_jwt', token);
+  localStorage.setItem('napiri_user', JSON.stringify(user));
 }
 
 export function clearSession() {
-  sessionStorage.removeItem('napiri_jwt');
-  sessionStorage.removeItem('napiri_user');
-  sessionStorage.removeItem('napiri_courier');
-  sessionStorage.removeItem('napiri_admin');
-  sessionStorage.removeItem('napiri_superadmin');
+  localStorage.removeItem('napiri_jwt');
+  localStorage.removeItem('napiri_user');
+  localStorage.removeItem('napiri_courier');
+  localStorage.removeItem('napiri_admin');
+  localStorage.removeItem('napiri_superadmin');
 }
 
 async function request<T>(path: string, init?: RequestInit, auth?: boolean): Promise<T> {

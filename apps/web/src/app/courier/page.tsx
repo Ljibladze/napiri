@@ -118,7 +118,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
         return;
       }
       saveSession(res.token, res.user);
-      sessionStorage.setItem('napiri_courier', '1');
+      localStorage.setItem('napiri_courier', '1');
       onLogin();
     } catch {
       setError(true);
@@ -173,11 +173,11 @@ export default function CourierPage() {
   useEffect(() => {
     const token = getToken();
     const user = getUser();
-    if (token && user && sessionStorage.getItem('napiri_courier') === '1') {
+    if (token && user && localStorage.getItem('napiri_courier') === '1') {
       setCurrentUser(user);
       setIsActive(user.isActive ?? false);
       setAuthed(true);
-      // refresh isActive from DB (sessionStorage might be stale)
+      // refresh isActive from DB (localStorage might be stale)
       api.users.me().then((fresh) => {
         if (fresh) {
           setIsActive(fresh.isActive ?? false);
