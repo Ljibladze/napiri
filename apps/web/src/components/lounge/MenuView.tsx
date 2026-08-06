@@ -33,7 +33,7 @@ export function MenuView({
       {/* ── Gradient hero header ─────────────────────── */}
       <div className={`${restaurant.coverClass} relative px-5 pt-5 pb-8 overflow-hidden`}>
         {restaurant.imageUrl && (
-          <img src={restaurant.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+          <img src={restaurant.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover object-top opacity-40" />
         )}
         {/* Back button */}
         <button

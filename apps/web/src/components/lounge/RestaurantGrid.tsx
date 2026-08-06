@@ -23,7 +23,7 @@ export function RestaurantGrid({ restaurants, onSelect, activeRestaurantId }: Re
           <div className={`${r.coverClass} relative h-52 flex items-center justify-center overflow-hidden`}>
             {r.imageUrl ? (
               <>
-                <img src={r.imageUrl} alt={r.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <img src={r.imageUrl} alt={r.name} className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/20" />
               </>
             ) : (
