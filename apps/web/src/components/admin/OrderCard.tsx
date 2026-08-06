@@ -13,6 +13,7 @@ interface OrderCardProps {
 export function OrderCard({ order, onStatusChange, isNew = false }: OrderCardProps) {
   const [loading, setLoading] = useState(false);
   const next = NEXT_STATUS[order.status];
+  const nextLabel = (next?.status === 'delivering' && order.deliveryType === 'pickup') ? 'მზადაა' : next?.label;
   const canCancel = order.status !== 'delivered' && order.status !== 'cancelled';
 
   async function handleChange(status: OrderStatus) {
@@ -121,7 +122,7 @@ export function OrderCard({ order, onStatusChange, isNew = false }: OrderCardPro
               {loading ? (
                 <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
               ) : (
-                <>{next.label} ›</>
+                <>{nextLabel} ›</>
               )}
             </button>
           )}

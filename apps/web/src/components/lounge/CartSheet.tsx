@@ -82,12 +82,12 @@ export function CartSheet({
 
           {/* Delivery type */}
           <div className="space-y-3">
-            <p className="text-white/35 text-xs font-bold uppercase tracking-widest">მიღების ტიპი</p>
+            <p className="text-white/35 text-xs font-bold uppercase tracking-widest">{t('delivery_type_label')}</p>
             <div className="grid grid-cols-2 gap-3">
               {([
-                { type: 'pickup' as DeliveryType,   icon: '🚶', label: 'Pickup',        sub: 'თვითონ წამოიღებ',    pct: '+5%' },
-                { type: 'delivery' as DeliveryType, icon: '🏖️', label: 'მიტანა',        sub: 'შეზლონგთან მოგიტანენ', pct: '+15%' },
-              ] as const).map(({ type, icon, label, sub, pct }) => {
+                { type: 'pickup' as DeliveryType,   icon: '🚶', labelKey: 'pickup_label' as TKey,   subKey: 'pickup_sub' as TKey,   pct: '+5%' },
+                { type: 'delivery' as DeliveryType, icon: '🏖️', labelKey: 'delivery_label' as TKey, subKey: 'delivery_sub' as TKey, pct: '+15%' },
+              ]).map(({ type, icon, labelKey, subKey, pct }) => {
                 const active = deliveryType === type;
                 return (
                   <button
@@ -101,8 +101,8 @@ export function CartSheet({
                     ].join(' ')}
                   >
                     <span className="text-3xl">{icon}</span>
-                    <span className={`text-sm font-black ${active ? 'text-white' : 'text-white/50'}`}>{label}</span>
-                    <span className={`text-[10px] font-semibold leading-tight ${active ? 'text-white/60' : 'text-white/25'}`}>{sub}</span>
+                    <span className={`text-sm font-black ${active ? 'text-white' : 'text-white/50'}`}>{t(labelKey)}</span>
+                    <span className={`text-[10px] font-semibold leading-tight ${active ? 'text-white/60' : 'text-white/25'}`}>{t(subKey)}</span>
                     <span className={`text-xs font-black px-2 py-0.5 rounded-full ${active ? 'bg-ocean-500/30 text-sky-300' : 'bg-white/[0.07] text-white/30'}`}>{pct}</span>
                   </button>
                 );
@@ -147,7 +147,7 @@ export function CartSheet({
             </div>
             <div className="flex items-center justify-between px-4 py-3 border-t border-white/[0.06]">
               <span className="text-white/50 text-sm">
-                სერვისი ({deliveryType === 'pickup' ? '5%' : '15%'}) — {deliveryType === 'pickup' ? '🚶 Pickup' : '🏖️ მიტანა'}
+                {t('service_fee')} ({deliveryType === 'pickup' ? '5%' : '15%'}) — {deliveryType === 'pickup' ? `🚶 ${t('pickup_label')}` : `🏖️ ${t('delivery_label')}`}
               </span>
               <span className="text-sky-300 font-bold">+{formatPrice(serviceCharge)}</span>
             </div>
@@ -209,11 +209,7 @@ export function CartSheet({
           {/* Confirmation notice */}
           <div className={`mb-3 flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${deliveryType === 'pickup' ? 'bg-amber-400/10 border border-amber-400/20 text-amber-300' : 'bg-ocean-600/10 border border-ocean-500/20 text-sky-300'}`}>
             <span>{deliveryType === 'pickup' ? '🚶' : '🏖️'}</span>
-            <span>
-              {deliveryType === 'pickup'
-                ? 'Pickup — შეკვეთა მოამზადებენ, შენ წამოიღებ (+5%)'
-                : 'მიტანა — კურიერი შეზლონგთან მოგიტანს (+15%)'}
-            </span>
+            <span>{t(deliveryType === 'pickup' ? 'confirm_pickup' : 'confirm_delivery')}</span>
           </div>
           <button
             onClick={handleOrder}

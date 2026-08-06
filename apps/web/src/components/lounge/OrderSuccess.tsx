@@ -40,6 +40,19 @@ const STEP_DESC_T: Record<string, TKey> = {
   delivered:  'step_delivered_desc',
 };
 
+function isPickupDelivering(step: string, deliveryType: string) {
+  return step === 'delivering' && deliveryType === 'pickup';
+}
+function resolveStepIcon(step: string, deliveryType: string) {
+  return isPickupDelivering(step, deliveryType) ? '📦' : STEP_ICON[step] ?? '🕐';
+}
+function resolveStatusT(step: string, deliveryType: string): TKey {
+  return isPickupDelivering(step, deliveryType) ? 's_delivering_pickup' : STATUS_T[step] ?? 's_pending';
+}
+function resolveStepDescT(step: string, deliveryType: string): TKey {
+  return isPickupDelivering(step, deliveryType) ? 'step_delivering_pickup_desc' : STEP_DESC_T[step] ?? 'step_pending_desc';
+}
+
 export function OrderSuccess({ order: initialOrder, onNewOrder }: OrderSuccessProps) {
   const { t } = useLang();
   const [order, setOrder] = useState<Order>(initialOrder);
@@ -72,7 +85,7 @@ export function OrderSuccess({ order: initialOrder, onNewOrder }: OrderSuccessPr
             </>
           )}
           <div className={`relative w-24 h-24 rounded-full flex items-center justify-center text-5xl s-hero-${order.status} s-glow-${order.status}`}>
-            {isDone ? '🎉' : STEP_ICON[order.status]}
+            {isDone ? '🎉' : resolveStepIcon(order.status, order.deliveryType)}
           </div>
         </div>
 
@@ -80,7 +93,7 @@ export function OrderSuccess({ order: initialOrder, onNewOrder }: OrderSuccessPr
           <h2 className="text-3xl font-black text-white">
             {isDone ? t('bon_appetit') : t('order_received')}
           </h2>
-          <p className="text-white/45 text-sm mt-1.5 font-medium">{t(STEP_DESC_T[order.status] ?? 'step_pending_desc')}</p>
+          <p className="text-white/45 text-sm mt-1.5 font-medium">{t(resolveStepDescT(order.status, order.deliveryType))}</p>
         </div>
 
         {/* Order ID chip */}
@@ -107,7 +120,7 @@ export function OrderSuccess({ order: initialOrder, onNewOrder }: OrderSuccessPr
                     : current ? `s-step-${step}`
                     : 'bg-white/[0.04] border border-white/[0.08] text-white/20',
                   ].join(' ')}>
-                    {done ? '✓' : STEP_ICON[step]}
+                    {done ? '✓' : resolveStepIcon(step, order.deliveryType)}
                   </div>
                   {idx < STATUS_STEPS.length - 1 && (
                     <div className={`w-px h-5 my-1 transition-all duration-700 ${done ? 'bg-green-500/30' : 'bg-white/[0.07]'}`} />
@@ -123,10 +136,10 @@ export function OrderSuccess({ order: initialOrder, onNewOrder }: OrderSuccessPr
                       : current ? 'text-white'
                       : 'text-white/20',
                     ].join(' ')}>
-                      {t(STATUS_T[step])}
+                      {t(resolveStatusT(step, order.deliveryType))}
                     </p>
                     {current && (
-                      <p className="text-white/35 text-xs mt-0.5 font-medium">{t(STEP_DESC_T[step] ?? 'step_pending_desc')}</p>
+                      <p className="text-white/35 text-xs mt-0.5 font-medium">{t(resolveStepDescT(step, order.deliveryType))}</p>
                     )}
                   </div>
 
@@ -167,12 +180,14 @@ export function OrderSuccess({ order: initialOrder, onNewOrder }: OrderSuccessPr
 
         <div className="px-5 py-3 border-t border-white/[0.07] space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-white/40 text-xs">კერძები</span>
+            <span className="text-white/40 text-xs">{t('items_label')}</span>
             <span className="text-white/60 text-xs font-bold">{formatPrice(order.total)}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-white/40 text-xs">
-              {order.deliveryType === 'pickup' ? '🚶 Pickup სერვისი (5%)' : '🏖️ მიტანის სერვისი (15%)'}
+              {order.deliveryType === 'pickup'
+                ? `🚶 ${t('pickup_label')} ${t('service_fee')} (5%)`
+                : `🏖️ ${t('delivery_label')} ${t('service_fee')} (15%)`}
             </span>
             <span className="text-sky-300 text-xs font-bold">+{formatPrice(order.serviceCharge ?? 0)}</span>
           </div>

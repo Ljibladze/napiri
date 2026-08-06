@@ -234,8 +234,9 @@ export default function CourierPage() {
       playNewOrder();
     },
     'order-updated': (data: unknown) => {
-      if (!authed) return;
+      if (!authed || !currentUser) return;
       const updated = data as Order;
+      if (updated.assignedCourierId !== currentUser.id) return;
       setOrders((prev) => {
         const without = prev.filter((o) => o.id !== updated.id);
         return ACTIVE.includes(updated.status as any) ? [updated, ...without] : without;
