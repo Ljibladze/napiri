@@ -94,6 +94,9 @@ export const api = {
     update: (id: string, body: any) => request<any>(`/menu/${id}`, { method: 'PATCH', body: JSON.stringify(body) }, true),
     remove: (id: string) => request<any>(`/menu/${id}`, { method: 'DELETE' }, true),
   },
+  admin: {
+    reset: () => request<{ ok: boolean }>('/admin/reset', { method: 'DELETE' }, true),
+  },
   stats: {
     get: (from?: string, to?: string) => {
       const params = new URLSearchParams();

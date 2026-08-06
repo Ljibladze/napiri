@@ -135,7 +135,21 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
 }
 
 // ── Overview ─────────────────────────────────────────────────────────────────
-function OverviewTab({ stats }: { stats: any }) {
+function OverviewTab({ stats, onReset }: { stats: any; onReset: () => void }) {
+  const [resetting, setResetting] = useState(false);
+
+  async function handleReset() {
+    if (!confirm('⚠️ ბაზა სრულად გაიწმინდება (შეკვეთები, მენიუ, რესტორნები, კურიერები). SuperAdmin დარჩება. დარწმუნებული ხარ?')) return;
+    if (!confirm('ბოლო შეკითხვა — ნამდვილად?')) return;
+    setResetting(true);
+    try {
+      await api.admin.reset();
+      alert('✅ ბაზა გაიწმინდა');
+      onReset();
+    } catch (e: any) { alert(e.message); }
+    finally { setResetting(false); }
+  }
+
   if (!stats) return <div className="flex justify-center py-20 text-white/30 text-sm">იტვირთება...</div>;
   return (
     <div className="space-y-5">
@@ -159,6 +173,14 @@ function OverviewTab({ stats }: { stats: any }) {
           ))}
         </div>
       </div>
+
+      <div className="pt-2 border-t border-white/[0.06]">
+        <p className="text-white/30 text-xs mb-2">⚠️ სახიფათო ზონა</p>
+        <button onClick={handleReset} disabled={resetting}
+          className="w-full py-3 rounded-xl text-sm font-black bg-red-600/20 border border-red-500/30 text-red-300 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+          {resetting ? <Spinner /> : '🗑️ ბაზის გაწმენდა (პროდ-ისთვის)'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -168,27 +190,28 @@ function RestaurantsTab() {
   const [restaurants, setRestaurants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<null | { type: 'add' | 'edit'; r?: any }>(null);
-  const [form, setForm] = useState({ id: '', name: '', description: '', emoji: '', coverClass: 'grad-olympos', rating: '4.5', deliveryTime: '15-20 წთ', tags: '' });
+  const [form, setForm] = useState({ id: '', name: '', description: '', imageUrl: '', coverClass: 'grad-olympos', rating: '4.5', deliveryTime: '15-20 წთ', tags: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { api.restaurants.listAdmin().then(setRestaurants).catch(console.error).finally(() => setLoading(false)); }, []);
 
   function openAdd() {
-    setForm({ id: '', name: '', description: '', emoji: '', coverClass: 'grad-olympos', rating: '4.5', deliveryTime: '15-20 წთ', tags: '' });
+    setForm({ id: '', name: '', description: '', imageUrl: '', coverClass: 'grad-olympos', rating: '4.5', deliveryTime: '15-20 წთ', tags: '' });
     setModal({ type: 'add' });
   }
   function openEdit(r: any) {
-    setForm({ id: r.id, name: r.name, description: r.description, emoji: r.emoji, coverClass: r.coverClass, rating: String(r.rating), deliveryTime: r.deliveryTime, tags: r.tags?.join(', ') ?? '' });
+    setForm({ id: r.id, name: r.name, description: r.description, imageUrl: r.imageUrl ?? '', coverClass: r.coverClass, rating: String(r.rating), deliveryTime: r.deliveryTime, tags: r.tags?.join(', ') ?? '' });
     setModal({ type: 'edit', r });
   }
 
   async function handleSave() {
-    if (!form.name || !form.emoji) return;
+    if (!form.name) return;
     setSaving(true);
     try {
       const payload = {
         id: form.id || String(Date.now()),
-        name: form.name, description: form.description, emoji: form.emoji,
+        name: form.name, description: form.description, emoji: '🏪',
+        imageUrl: form.imageUrl || undefined,
         coverClass: form.coverClass, rating: parseFloat(form.rating) || 4.5,
         deliveryTime: form.deliveryTime,
         tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
@@ -222,7 +245,9 @@ function RestaurantsTab() {
         <div className="space-y-2">
           {restaurants.map((r) => (
             <Card key={r.id} className="flex items-center gap-3 py-3">
-              <span className="text-3xl">{r.emoji}</span>
+              <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/[0.07] border border-white/[0.08] flex items-center justify-center shrink-0">
+                {r.imageUrl ? <img src={r.imageUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl">🏪</span>}
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-bold">{r.name}</p>
                 <p className="text-white/40 text-xs truncate">{r.description}</p>
@@ -241,10 +266,8 @@ function RestaurantsTab() {
       {modal && (
         <Modal title={modal.type === 'add' ? '+ ახალი რესტორანი' : '✏️ რედაქტირება'} onClose={() => setModal(null)}>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Inp label="სახელი" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="ოლიმპოსი" />
-              <Inp label="ემოჯი" value={form.emoji} onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))} placeholder="🏛️" />
-            </div>
+            <ImagePicker value={form.imageUrl} onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))} />
+            <Inp label="სახელი" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="ოლიმპოსი" />
             <Inp label="აღწერა" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="ქართული სამზარეულო" />
             <div className="grid grid-cols-2 gap-3">
               <Inp label="შეფასება" type="number" value={form.rating} onChange={(e) => setForm((f) => ({ ...f, rating: e.target.value }))} placeholder="4.8" />
@@ -891,7 +914,7 @@ export default function SuperAdminPage() {
       </div>
 
       <div className="relative z-10 flex-1 px-4 pb-10 pt-3 max-w-2xl mx-auto w-full">
-        {tab === 'overview'    && <OverviewTab stats={stats} />}
+        {tab === 'overview'    && <OverviewTab stats={stats} onReset={() => { setRestaurants([]); setStats(null); api.restaurants.listAdmin().then(setRestaurants).catch(console.error); api.stats.get().then(setStats).catch(console.error); }} />}
         {tab === 'restaurants' && <RestaurantsTab />}
         {tab === 'menu'        && <MenuTab restaurants={restaurants} />}
         {tab === 'users'       && <UsersTab restaurants={restaurants} />}

@@ -8,6 +8,7 @@ import { MenuModule } from './menu/menu.module';
 import { StatsModule } from './stats/stats.module';
 import { SeedModule } from './seed/seed.module';
 import { HealthController } from './health.controller';
+import { AdminController } from './admin.controller';
 
 @Module({
   imports: [
@@ -20,6 +21,6 @@ import { HealthController } from './health.controller';
     StatsModule,
     SeedModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, AdminController],
 })
 export class AppModule {}

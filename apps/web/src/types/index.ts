@@ -13,6 +13,7 @@ export interface RestaurantSummary {
   name: string;
   description: string;
   emoji: string;
+  imageUrl?: string;
   coverClass: string;
   rating: number;
   deliveryTime: string;

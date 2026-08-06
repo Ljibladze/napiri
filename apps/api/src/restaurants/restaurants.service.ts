@@ -14,6 +14,7 @@ export class RestaurantsService {
         name: true,
         description: true,
         emoji: true,
+        imageUrl: true,
         coverClass: true,
         rating: true,
         deliveryTime: true,
