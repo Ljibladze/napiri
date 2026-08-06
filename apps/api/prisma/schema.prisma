@@ -12,8 +12,9 @@ model User {
   username     String      @unique
   passwordHash String
   role         String
-  restaurantId String?
-  isActive     Boolean     @default(false)
+  restaurantId  String?
+  restaurantIds String[]    @default([])
+  isActive      Boolean     @default(false)
   restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
   createdAt    DateTime    @default(now())
 }

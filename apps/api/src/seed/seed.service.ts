@@ -12,6 +12,7 @@ export class SeedService implements OnModuleInit {
   async onModuleInit() {
     await this.seedRestaurants();
     await this.seedUsers();
+    await this.migrateCourierRestaurantIds();
   }
 
   private async seedRestaurants() {
@@ -63,6 +64,21 @@ export class SeedService implements OnModuleInit {
         },
       });
       this.logger.log(`Seeded user: ${u.username}`);
+    }
+  }
+
+  private async migrateCourierRestaurantIds() {
+    const couriers = await this.prisma.user.findMany({
+      where: { role: 'courier', restaurantId: { not: null } },
+    });
+    for (const c of couriers) {
+      if (c.restaurantIds.length === 0 && c.restaurantId) {
+        await this.prisma.user.update({
+          where: { id: c.id },
+          data: { restaurantIds: [c.restaurantId] },
+        });
+        this.logger.log(`Migrated courier ${c.username}: restaurantIds = [${c.restaurantId}]`);
+      }
     }
   }
 }

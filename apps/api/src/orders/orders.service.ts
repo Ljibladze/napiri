@@ -10,7 +10,7 @@ export class OrdersService {
 
   private async assignCourier(restaurantId: string): Promise<string | null> {
     const active = await this.prisma.user.findMany({
-      where: { role: 'courier', restaurantId, isActive: true },
+      where: { role: 'courier', restaurantIds: { has: restaurantId }, isActive: true },
     });
     if (active.length === 0) return null;
 

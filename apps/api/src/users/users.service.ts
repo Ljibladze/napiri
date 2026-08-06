@@ -14,7 +14,7 @@ export class UsersService {
 
   async findByRestaurant(restaurantId: string) {
     const users = await this.prisma.user.findMany({
-      where: { restaurantId, role: 'courier' },
+      where: { role: 'courier', restaurantIds: { has: restaurantId } },
       orderBy: { createdAt: 'desc' },
     });
     return users.map(({ passwordHash: _h, ...u }) => u);
@@ -24,12 +24,14 @@ export class UsersService {
     const existing = await this.prisma.user.findUnique({ where: { username: dto.username } });
     if (existing) throw new ConflictException('Username already exists');
     const passwordHash = await bcrypt.hash(dto.password, 10);
+    const restaurantIds = dto.restaurantId ? [dto.restaurantId] : [];
     const user = await this.prisma.user.create({
       data: {
         username: dto.username,
         passwordHash,
         role: dto.role,
         restaurantId: dto.restaurantId ?? null,
+        restaurantIds,
       },
     });
     const { passwordHash: _h, ...result } = user;
@@ -59,12 +61,12 @@ export class UsersService {
   async setActive(id: string, isActive: boolean) {
     const updated = await this.prisma.user.update({ where: { id }, data: { isActive } });
 
-    // when courier goes active, grab unassigned orders for their restaurant
-    if (isActive && updated.restaurantId) {
+    if (isActive && updated.restaurantIds.length > 0) {
       await this.prisma.order.updateMany({
         where: {
-          restaurantId: updated.restaurantId,
+          restaurantId: { in: updated.restaurantIds },
           assignedCourierId: null,
+          deliveryType: 'delivery',
           status: { notIn: ['delivered', 'cancelled'] },
         },
         data: { assignedCourierId: id },
@@ -75,12 +77,41 @@ export class UsersService {
     return result;
   }
 
+  async addRestaurant(courierId: string, restaurantId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: courierId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.restaurantIds.includes(restaurantId)) {
+      const { passwordHash: _h, ...result } = user;
+      return result;
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: courierId },
+      data: { restaurantIds: { push: restaurantId } },
+    });
+    const { passwordHash: _h, ...result } = updated;
+    return result;
+  }
+
+  async removeRestaurant(courierId: string, restaurantId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: courierId } });
+    if (!user) throw new NotFoundException('User not found');
+    const updated = await this.prisma.user.update({
+      where: { id: courierId },
+      data: { restaurantIds: user.restaurantIds.filter((rid) => rid !== restaurantId) },
+    });
+    const { passwordHash: _h, ...result } = updated;
+    return result;
+  }
+
   async reassign(id: string, restaurantId: string | null) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     const updated = await this.prisma.user.update({
       where: { id },
-      data: { restaurantId },
+      data: {
+        restaurantId,
+        restaurantIds: restaurantId ? [restaurantId] : [],
+      },
     });
     const { passwordHash: _h, ...result } = updated;
     return result;

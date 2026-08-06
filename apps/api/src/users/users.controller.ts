@@ -63,4 +63,32 @@ export class UsersController {
   reassign(@Param('id') id: string, @Body('restaurantId') restaurantId: string | null) {
     return this.users.reassign(id, restaurantId ?? null);
   }
+
+  @Post(':id/restaurants')
+  @UseGuards(RolesGuard)
+  @Roles('superAdmin', 'restaurantAdmin')
+  addRestaurant(
+    @Param('id') id: string,
+    @Body('restaurantId') restaurantId: string,
+    @Req() req: any,
+  ) {
+    if (req.user.role === 'restaurantAdmin' && restaurantId !== req.user.restaurantId) {
+      throw new ForbiddenException('Can only manage your own restaurant');
+    }
+    return this.users.addRestaurant(id, restaurantId);
+  }
+
+  @Delete(':id/restaurants/:restaurantId')
+  @UseGuards(RolesGuard)
+  @Roles('superAdmin', 'restaurantAdmin')
+  removeRestaurant(
+    @Param('id') id: string,
+    @Param('restaurantId') restaurantId: string,
+    @Req() req: any,
+  ) {
+    if (req.user.role === 'restaurantAdmin' && restaurantId !== req.user.restaurantId) {
+      throw new ForbiddenException('Can only manage your own restaurant');
+    }
+    return this.users.removeRestaurant(id, restaurantId);
+  }
 }

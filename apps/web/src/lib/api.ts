@@ -87,6 +87,10 @@ export const api = {
       request<any>('/users/me/active', { method: 'PATCH', body: JSON.stringify({ isActive }) }, true),
     reassign: (id: string, restaurantId: string | null) =>
       request<any>(`/users/${id}/reassign`, { method: 'PATCH', body: JSON.stringify({ restaurantId }) }, true),
+    addRestaurant: (courierId: string, restaurantId: string) =>
+      request<any>(`/users/${courierId}/restaurants`, { method: 'POST', body: JSON.stringify({ restaurantId }) }, true),
+    removeRestaurant: (courierId: string, restaurantId: string) =>
+      request<any>(`/users/${courierId}/restaurants/${restaurantId}`, { method: 'DELETE' }, true),
   },
   menu: {
     list: (restaurantId: string) => request<any[]>(`/menu/${restaurantId}`),

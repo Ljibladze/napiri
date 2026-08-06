@@ -278,8 +278,40 @@ function MenuTab({ user }: { user: any }) {
 
 // ── Couriers Tab ──────────────────────────────────────────────────────────────
 
+function AddRestaurantInline({ courierId, available, onAdd }: {
+  courierId: string;
+  available: any[];
+  onAdd: (courierId: string, rId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (available.length === 0) return null;
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 text-xs bg-ocean-600/20 border border-ocean-500/30 text-sky-400 rounded-lg px-2 py-0.5 font-bold active:scale-95 transition-all">
+        + რესტ.
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1 z-20 bg-[#0d1b2a] border border-white/[0.12] rounded-xl p-1 shadow-xl min-w-[140px]">
+            {available.map((r: any) => (
+              <button key={r.id}
+                onClick={() => { onAdd(courierId, r.id); setOpen(false); }}
+                className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-white/70 hover:text-white hover:bg-white/[0.07] transition-all">
+                {r.emoji} {r.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CouriersTab({ user }: { user: any }) {
   const [couriers, setCouriers] = useState<any[]>([]);
+  const [restaurants, setRestaurants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ username: '', password: '' });
@@ -289,12 +321,23 @@ function CouriersTab({ user }: { user: any }) {
 
   useEffect(() => {
     api.users.list().then(setCouriers).catch(console.error).finally(() => setLoading(false));
+    api.restaurants.listAdmin().then(setRestaurants).catch(() =>
+      api.restaurants.list().then(setRestaurants).catch(console.error)
+    );
     const rId = user.role === 'restaurantAdmin' ? user.restaurantId : undefined;
     api.orders.courierStats(rId).then(setStats).catch(console.error);
   }, []);
 
   function getStats(courierId: string) {
     return stats.find((s) => s.courierId === courierId);
+  }
+
+  function availableFor(courier: any) {
+    const assigned: string[] = courier.restaurantIds ?? [];
+    if (user.role === 'restaurantAdmin') {
+      return assigned.includes(user.restaurantId) ? [] : restaurants.filter((r: any) => r.id === user.restaurantId);
+    }
+    return restaurants.filter((r: any) => !assigned.includes(r.id));
   }
 
   async function handleCreate() {
@@ -319,6 +362,20 @@ function CouriersTab({ user }: { user: any }) {
     finally { setDeletingId(null); }
   }
 
+  async function handleAddRestaurant(courierId: string, restaurantId: string) {
+    try {
+      const updated = await api.users.addRestaurant(courierId, restaurantId);
+      setCouriers((p) => p.map((c) => c.id === courierId ? { ...c, restaurantIds: updated.restaurantIds } : c));
+    } catch (e: any) { alert(e.message ?? 'შეცდომა'); }
+  }
+
+  async function handleRemoveRestaurant(courierId: string, restaurantId: string) {
+    try {
+      const updated = await api.users.removeRestaurant(courierId, restaurantId);
+      setCouriers((p) => p.map((c) => c.id === courierId ? { ...c, restaurantIds: updated.restaurantIds } : c));
+    } catch (e: any) { alert(e.message ?? 'შეცდომა'); }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -339,8 +396,9 @@ function CouriersTab({ user }: { user: any }) {
         <div className="space-y-3">
           {couriers.map((c) => {
             const s = getStats(c.id);
+            const assigned: string[] = c.restaurantIds ?? [];
             return (
-              <div key={c.id} className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4">
+              <div key={c.id} className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-ocean-600/20 border border-ocean-500/30 flex items-center justify-center text-xl">🏍️</div>
@@ -357,15 +415,33 @@ function CouriersTab({ user }: { user: any }) {
                   </button>
                 </div>
 
-                {s?.byRestaurant?.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-white/[0.05] flex flex-wrap gap-2">
-                    {s.byRestaurant.map((r: any) => (
-                      <span key={r.id} className="text-xs bg-white/[0.06] border border-white/[0.08] rounded-lg px-2.5 py-1 text-white/60">
-                        {r.emoji} {r.name}: <span className="text-sky-300 font-bold">{r.count}</span>
+                {/* Restaurant assignments */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {assigned.map((rid) => {
+                    const r = restaurants.find((r: any) => r.id === rid);
+                    const canRemove = user.role === 'superAdmin' || user.restaurantId === rid;
+                    if (!r) return null;
+                    return (
+                      <span key={rid} className="inline-flex items-center gap-1.5 text-xs bg-white/[0.07] border border-white/[0.10] rounded-lg px-2.5 py-1 text-white/70">
+                        {r.emoji} {r.name}
+                        {canRemove && (
+                          <button onClick={() => handleRemoveRestaurant(c.id, rid)}
+                            className="text-white/30 hover:text-red-400 transition-colors font-black text-[11px] leading-none">
+                            ×
+                          </button>
+                        )}
                       </span>
-                    ))}
-                  </div>
-                )}
+                    );
+                  })}
+                  <AddRestaurantInline
+                    courierId={c.id}
+                    available={availableFor(c)}
+                    onAdd={handleAddRestaurant}
+                  />
+                  {assigned.length === 0 && (
+                    <span className="text-white/20 text-xs">რესტორანი არ არის მიბმული</span>
+                  )}
+                </div>
               </div>
             );
           })}
