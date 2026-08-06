@@ -476,7 +476,6 @@ function StatsTab({ user }: { user: any }) {
           ყველა
         </button>
       </div>
-      </div>
 
       {loading ? (
         <div className="flex justify-center py-16">
