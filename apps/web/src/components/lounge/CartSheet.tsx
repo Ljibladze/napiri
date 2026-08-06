@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { CartItem, PaymentMethod } from '@/types';
+import type { CartItem, PaymentMethod, DeliveryType } from '@/types';
 import { formatPrice } from '@/lib/utils';
 import { useLang } from '@/contexts/LanguageContext';
 import type { TKey } from '@/lib/translations';
@@ -13,12 +13,14 @@ interface CartSheetProps {
   loungeId: string;
   onUpdateQuantity: (id: string, qty: number) => void;
   onClose: () => void;
-  onSubmit: (paymentMethod: PaymentMethod, notes: string) => Promise<void>;
+  onSubmit: (paymentMethod: PaymentMethod, notes: string, deliveryType: DeliveryType) => Promise<void>;
 }
 
 const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'terminal', 'transfer'];
 const PAYMENT_ICON: Record<PaymentMethod, string> = { cash: '💵', terminal: '💳', transfer: '📱' };
 const PAYMENT_T: Record<PaymentMethod, TKey> = { cash: 'pay_cash', terminal: 'pay_terminal', transfer: 'pay_transfer' };
+
+const DELIVERY_FEE: Record<DeliveryType, number> = { pickup: 0.05, delivery: 0.15 };
 
 export function CartSheet({
   items, restaurantName, restaurantEmoji, loungeId,
@@ -26,16 +28,20 @@ export function CartSheet({
 }: CartSheetProps) {
   const { t } = useLang();
   const [payment, setPayment] = useState<PaymentMethod>('cash');
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>('delivery');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [notesFocused, setNotesFocused] = useState(false);
 
-  const total      = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
+  const subtotal    = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const feeRate     = DELIVERY_FEE[deliveryType];
+  const serviceCharge = Math.round(subtotal * feeRate * 100) / 100;
+  const grandTotal  = subtotal + serviceCharge;
+  const totalItems  = items.reduce((s, i) => s + i.quantity, 0);
 
   async function handleOrder() {
     setLoading(true);
-    try { await onSubmit(payment, notes); }
+    try { await onSubmit(payment, notes, deliveryType); }
     finally { setLoading(false); }
   }
 
@@ -74,6 +80,36 @@ export function CartSheet({
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
 
+          {/* Delivery type */}
+          <div className="space-y-3">
+            <p className="text-white/35 text-xs font-bold uppercase tracking-widest">მიღების ტიპი</p>
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                { type: 'pickup' as DeliveryType,   icon: '🚶', label: 'Pickup',        sub: 'თვითონ წამოიღებ',    pct: '+5%' },
+                { type: 'delivery' as DeliveryType, icon: '🏖️', label: 'მიტანა',        sub: 'შეზლონგთან მოგიტანენ', pct: '+15%' },
+              ] as const).map(({ type, icon, label, sub, pct }) => {
+                const active = deliveryType === type;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setDeliveryType(type)}
+                    className={[
+                      'flex flex-col items-center gap-2 py-4 px-3 rounded-2xl transition-all duration-200 active:scale-95 text-center',
+                      active
+                        ? 'bg-ocean-600/[0.18] border-2 border-ocean-500/60 shadow-[0_0_20px_rgba(0,180,216,0.15)]'
+                        : 'bg-white/[0.05] border-2 border-white/[0.08]',
+                    ].join(' ')}
+                  >
+                    <span className="text-3xl">{icon}</span>
+                    <span className={`text-sm font-black ${active ? 'text-white' : 'text-white/50'}`}>{label}</span>
+                    <span className={`text-[10px] font-semibold leading-tight ${active ? 'text-white/60' : 'text-white/25'}`}>{sub}</span>
+                    <span className={`text-xs font-black px-2 py-0.5 rounded-full ${active ? 'bg-ocean-500/30 text-sky-300' : 'bg-white/[0.07] text-white/30'}`}>{pct}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Items list */}
           <div className="space-y-3">
             {items.map((item) => (
@@ -103,10 +139,22 @@ export function CartSheet({
             ))}
           </div>
 
-          {/* Total row */}
-          <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white/[0.06] border border-white/[0.10]">
-            <span className="text-white/50 text-sm font-medium">{totalItems} {t('items_suffix')}</span>
-            <span className="text-white font-black text-2xl">{formatPrice(total)}</span>
+          {/* Price breakdown */}
+          <div className="rounded-2xl bg-white/[0.05] border border-white/[0.08] overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-white/50 text-sm">{totalItems} კერძი</span>
+              <span className="text-white font-bold">{formatPrice(subtotal)}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3 border-t border-white/[0.06]">
+              <span className="text-white/50 text-sm">
+                სერვისი ({deliveryType === 'pickup' ? '5%' : '15%'}) — {deliveryType === 'pickup' ? '🚶 Pickup' : '🏖️ მიტანა'}
+              </span>
+              <span className="text-sky-300 font-bold">+{formatPrice(serviceCharge)}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3.5 bg-white/[0.04] border-t border-white/[0.08]">
+              <span className="text-white font-black">სულ</span>
+              <span className="text-white font-black text-2xl">{formatPrice(grandTotal)}</span>
+            </div>
           </div>
 
           {/* Payment method */}
@@ -158,6 +206,15 @@ export function CartSheet({
 
         {/* Order CTA */}
         <div className="px-5 pb-8 pt-4 shrink-0 border-t border-white/[0.07]">
+          {/* Confirmation notice */}
+          <div className={`mb-3 flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold ${deliveryType === 'pickup' ? 'bg-amber-400/10 border border-amber-400/20 text-amber-300' : 'bg-ocean-600/10 border border-ocean-500/20 text-sky-300'}`}>
+            <span>{deliveryType === 'pickup' ? '🚶' : '🏖️'}</span>
+            <span>
+              {deliveryType === 'pickup'
+                ? 'Pickup — შეკვეთა მოამზადებენ, შენ წამოიღებ (+5%)'
+                : 'მიტანა — კურიერი შეზლონგთან მოგიტანს (+15%)'}
+            </span>
+          </div>
           <button
             onClick={handleOrder}
             disabled={loading}
@@ -172,7 +229,7 @@ export function CartSheet({
               <>
                 <span>{t('order_btn')}</span>
                 <span className="rounded-xl px-2.5 py-1 text-sm font-black bg-black/20">
-                  {formatPrice(total)}
+                  {formatPrice(grandTotal)}
                 </span>
               </>
             )}

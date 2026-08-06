@@ -165,9 +165,22 @@ export function OrderSuccess({ order: initialOrder, onNewOrder }: OrderSuccessPr
           ))}
         </div>
 
+        <div className="px-5 py-3 border-t border-white/[0.07] space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-white/40 text-xs">კერძები</span>
+            <span className="text-white/60 text-xs font-bold">{formatPrice(order.total)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-white/40 text-xs">
+              {order.deliveryType === 'pickup' ? '🚶 Pickup სერვისი (5%)' : '🏖️ მიტანის სერვისი (15%)'}
+            </span>
+            <span className="text-sky-300 text-xs font-bold">+{formatPrice(order.serviceCharge ?? 0)}</span>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between px-5 py-4 border-t border-white/[0.07] bg-white/[0.03]">
           <span className="text-white/40 text-sm font-medium">{t('total')}</span>
-          <span className="text-white font-black text-2xl">{formatPrice(order.total)}</span>
+          <span className="text-white font-black text-2xl">{formatPrice(order.total + (order.serviceCharge ?? 0))}</span>
         </div>
       </div>
 

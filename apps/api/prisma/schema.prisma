@@ -53,6 +53,8 @@ model Order {
   restaurantName  String
   restaurantEmoji String
   total           Float
+  serviceCharge   Float       @default(0)
+  deliveryType    String      @default("delivery")
   paymentMethod   String
   status          String      @default("pending")
   notes               String?

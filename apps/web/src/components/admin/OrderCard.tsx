@@ -45,6 +45,9 @@ export function OrderCard({ order, onStatusChange, isNew = false }: OrderCardPro
                 ✨ ახალი შეკვეთა
               </span>
             )}
+            <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${order.deliveryType === 'pickup' ? 'bg-amber-400/10 border-amber-400/25 text-amber-300' : 'bg-ocean-600/10 border-ocean-500/25 text-sky-300'}`}>
+              {order.deliveryType === 'pickup' ? '🚶 Pickup +5%' : '🏖️ მიტანა +15%'}
+            </span>
           </div>
 
           {/* Restaurant */}
@@ -95,7 +98,14 @@ export function OrderCard({ order, onStatusChange, isNew = false }: OrderCardPro
           <span className="text-white/40 text-sm font-medium">
             {PAYMENT_ICON[order.paymentMethod]} {PAYMENT_LABEL[order.paymentMethod]}
           </span>
-          <span className="text-white font-black text-xl">{formatPrice(order.total)}</span>
+          <div className="text-right">
+            {order.serviceCharge > 0 && (
+              <div className="text-white/35 text-xs">
+                ₾{order.total.toFixed(2)} + სერვ. ₾{order.serviceCharge.toFixed(2)}
+              </div>
+            )}
+            <span className="text-white font-black text-xl">{formatPrice(order.total + (order.serviceCharge ?? 0))}</span>
+          </div>
         </div>
 
         {/* Time + action buttons */}

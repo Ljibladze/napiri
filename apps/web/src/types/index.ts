@@ -32,6 +32,7 @@ export type OrderStatus =
   | 'cancelled';
 
 export type PaymentMethod = 'cash' | 'terminal' | 'transfer';
+export type DeliveryType = 'pickup' | 'delivery';
 
 export interface OrderItem {
   id: string;
@@ -54,6 +55,8 @@ export interface Order {
   restaurantEmoji: string;
   items: OrderItem[];
   total: number;
+  serviceCharge: number;
+  deliveryType: DeliveryType;
   paymentMethod: PaymentMethod;
   status: OrderStatus;
   createdAt: string;
@@ -68,5 +71,6 @@ export interface CreateOrderPayload {
   restaurantId: string;
   items: OrderItem[];
   paymentMethod: PaymentMethod;
+  deliveryType: DeliveryType;
   notes?: string;
 }

@@ -28,9 +28,11 @@ export class OrdersService {
 
   async create(dto: CreateOrderDto): Promise<Order> {
     const restaurant = await this.prisma.restaurant.findUnique({ where: { id: dto.restaurantId } });
-    const total = dto.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const subtotal = dto.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const serviceCharge = Math.round(subtotal * (dto.deliveryType === 'pickup' ? 0.05 : 0.15) * 100) / 100;
+    const total = subtotal;
     const id = `ORD-${uuidv4().slice(0, 8).toUpperCase()}`;
-    const assignedCourierId = await this.assignCourier(dto.restaurantId);
+    const assignedCourierId = dto.deliveryType === 'pickup' ? null : await this.assignCourier(dto.restaurantId);
 
     const order = await this.prisma.order.create({
       data: {
@@ -40,6 +42,8 @@ export class OrdersService {
         restaurantName: restaurant?.name ?? 'Unknown',
         restaurantEmoji: restaurant?.emoji ?? '🍽️',
         total,
+        serviceCharge,
+        deliveryType: dto.deliveryType,
         paymentMethod: dto.paymentMethod,
         status: 'pending',
         notes: dto.notes ?? null,
@@ -156,6 +160,8 @@ export class OrdersService {
       restaurantName: raw.restaurantName,
       restaurantEmoji: raw.restaurantEmoji,
       total: raw.total,
+      serviceCharge: raw.serviceCharge ?? 0,
+      deliveryType: (raw.deliveryType ?? 'delivery') as any,
       paymentMethod: raw.paymentMethod as any,
       status: raw.status as OrderStatus,
       notes: raw.notes ?? undefined,

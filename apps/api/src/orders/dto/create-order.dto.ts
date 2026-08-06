@@ -9,6 +9,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { DeliveryType } from '../entities/order.entity';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '../entities/order.entity';
 
@@ -54,6 +55,9 @@ export class CreateOrderDto {
 
   @IsEnum(['cash', 'terminal', 'transfer'])
   paymentMethod: PaymentMethod;
+
+  @IsEnum(['pickup', 'delivery'])
+  deliveryType: DeliveryType;
 
   @IsOptional()
   @IsString()

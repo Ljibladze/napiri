@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import type { RestaurantSummary, RestaurantDetail, Order, PaymentMethod } from '@/types';
+import type { RestaurantSummary, RestaurantDetail, Order, PaymentMethod, DeliveryType } from '@/types';
 import { api } from '@/lib/api';
 import { useCart } from '@/hooks/useCart';
 import { useLang } from '@/contexts/LanguageContext';
@@ -101,13 +101,14 @@ export default function LoungePage() {
     [cart, selectedRestaurant],
   );
 
-  async function handleSubmitOrder(paymentMethod: PaymentMethod, notes: string) {
+  async function handleSubmitOrder(paymentMethod: PaymentMethod, notes: string, deliveryType: DeliveryType) {
     if (!selectedRestaurant) return;
     const order = await api.orders.create({
       loungeId,
       restaurantId: selectedRestaurant.id,
       items: cart.items,
       paymentMethod,
+      deliveryType,
       notes: notes || undefined,
     });
     cart.clearCart();
