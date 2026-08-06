@@ -420,13 +420,13 @@ function CouriersTab({ user }: { user: any }) {
                   {assigned.map((rid) => {
                     const r = restaurants.find((r: any) => r.id === rid);
                     const canRemove = user.role === 'superAdmin' || user.restaurantId === rid;
-                    if (!r) return null;
+                    const label = r ? `${r.emoji} ${r.name}` : rid.slice(0, 8);
                     return (
-                      <span key={rid} className="inline-flex items-center gap-1.5 text-xs bg-white/[0.07] border border-white/[0.10] rounded-lg px-2.5 py-1 text-white/70">
-                        {r.emoji} {r.name}
+                      <span key={rid} className="inline-flex items-center gap-1 text-xs bg-white/[0.10] border border-white/[0.15] rounded-lg pl-2.5 pr-1 py-1 text-white/80">
+                        {label}
                         {canRemove && (
                           <button onClick={() => handleRemoveRestaurant(c.id, rid)}
-                            className="text-white/30 hover:text-red-400 transition-colors font-black text-[11px] leading-none">
+                            className="ml-0.5 w-4 h-4 flex items-center justify-center rounded bg-white/[0.10] hover:bg-red-500/40 text-white/60 hover:text-white transition-all text-[13px] font-black leading-none">
                             ×
                           </button>
                         )}
@@ -438,8 +438,8 @@ function CouriersTab({ user }: { user: any }) {
                     available={availableFor(c)}
                     onAdd={handleAddRestaurant}
                   />
-                  {assigned.length === 0 && (
-                    <span className="text-white/20 text-xs">რესტორანი არ არის მიბმული</span>
+                  {assigned.length === 0 && restaurants.length > 0 && (
+                    <span className="text-white/20 text-xs italic">რესტ. არ არის</span>
                   )}
                 </div>
               </div>
