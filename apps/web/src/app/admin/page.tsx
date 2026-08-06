@@ -417,13 +417,22 @@ const STATUS_GE: Record<string, string> = {
   delivering: 'გზაშია', delivered: 'ჩაბარდა', cancelled: 'გაუქმდა',
 };
 
+function isoDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
 function StatsTab({ user }: { user: any }) {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string>(isoDate(new Date()));
 
   useEffect(() => {
+    setLoading(true);
+    setStats(null);
+    const from = selectedDate ? `${selectedDate}T00:00:00.000Z` : undefined;
+    const to   = selectedDate ? selectedDate : undefined;
     const rId = user.role === 'restaurantAdmin' ? user.restaurantId : undefined;
-    api.stats.get().then((data) => {
+    api.stats.get(from, to).then((data) => {
       if (rId) {
         const rStat = data.byRestaurant?.find((r: any) => r.id === rId);
         const rOrders = data.recent?.filter((o: any) => o.restaurantId === rId) ?? [];
@@ -435,63 +444,147 @@ function StatsTab({ user }: { user: any }) {
           totalOrders: rStat?.orders ?? 0,
           totalRevenue: rStat?.revenue ?? 0,
           byStatus,
+          serviceBreakdown: rStat?.serviceBreakdown ?? null,
           byCourier: data.byCourier?.filter((c: any) => c.restaurantId === rId || c.byRestaurant?.some((r: any) => r.id === rId)) ?? [],
         });
       } else {
         setStats(data);
       }
     }).catch(console.error).finally(() => setLoading(false));
-  }, [user]);
+  }, [user, selectedDate]);
 
-  if (loading) return <div className="flex justify-center py-16"><span className="w-6 h-6 rounded-full border-2 border-white/15 border-t-white/50 animate-spin" /></div>;
-  if (!stats) return null;
+  const sb = stats?.serviceBreakdown;
+  const todayStr = isoDate(new Date());
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4 text-center">
-          <div className="text-2xl mb-1">📦</div>
-          <div className="text-2xl font-black text-sky-300">{stats.totalOrders}</div>
-          <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">სულ შეკვეთა</div>
-        </div>
-        <div className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4 text-center">
-          <div className="text-2xl mb-1">💰</div>
-          <div className="text-2xl font-black text-emerald-300">₾{(stats.totalRevenue ?? 0).toFixed(0)}</div>
-          <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">შემოსავალი</div>
-        </div>
+      {/* Date selector */}
+      <div className="flex items-center gap-2">
+        <input
+          type="date"
+          value={selectedDate}
+          max={todayStr}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          className="flex-1 rounded-xl px-3 py-2 text-white text-sm font-medium bg-white/[0.07] border border-white/[0.10] focus:outline-none focus:ring-2 focus:ring-ocean-500/40 [color-scheme:dark]"
+        />
+        <button onClick={() => setSelectedDate(todayStr)}
+          className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 shrink-0 ${selectedDate === todayStr ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          დღეს
+        </button>
+        <button onClick={() => setSelectedDate('')}
+          className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 shrink-0 ${selectedDate === '' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
+          ყველა
+        </button>
+      </div>
       </div>
 
-      {stats.byStatus && Object.keys(stats.byStatus).length > 0 && (
-        <div>
-          <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-3">სტატუსი</p>
-          <div className="grid grid-cols-3 gap-2">
-            {Object.entries(stats.byStatus as Record<string, number>).map(([st, cnt]) => (
-              <div key={st} className="bg-white/[0.05] border border-white/[0.08] rounded-xl p-2.5 text-center">
-                <div className="text-white font-black text-lg">{cnt}</div>
-                <div className="text-white/35 text-[10px]">{STATUS_GE[st] ?? st}</div>
-              </div>
-            ))}
-          </div>
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <span className="w-6 h-6 rounded-full border-2 border-white/15 border-t-white/50 animate-spin" />
         </div>
-      )}
+      ) : !stats ? null : (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4 text-center">
+              <div className="text-2xl mb-1">📦</div>
+              <div className="text-2xl font-black text-sky-300">{stats.totalOrders}</div>
+              <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">სულ შეკვეთა</div>
+            </div>
+            <div className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-4 text-center">
+              <div className="text-2xl mb-1">💰</div>
+              <div className="text-2xl font-black text-emerald-300">₾{(stats.totalRevenue ?? 0).toFixed(0)}</div>
+              <div className="text-white/35 text-[10px] font-bold uppercase tracking-wider mt-0.5">შემოსავალი</div>
+            </div>
+          </div>
 
-      {stats.byCourier?.length > 0 && (
-        <div>
-          <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-3">კურიერები</p>
-          <div className="space-y-2">
-            {stats.byCourier.map((c: any) => {
-              const myCount = c.byRestaurant?.find((r: any) => r.id === user.restaurantId)?.count ?? c.deliveries;
-              return (
-                <div key={c.courierId} className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-3.5 flex items-center gap-3">
-                  <span className="text-xl">🏍️</span>
-                  <span className="text-white font-bold flex-1">{c.username}</span>
-                  <span className="text-sky-300 font-black">{myCount}</span>
-                  <span className="text-white/30 text-xs">ჩაბარება</span>
+          {/* ── Service charge breakdown ───────────────────────── */}
+          {sb && (
+            <div className="rounded-2xl overflow-hidden bg-white/[0.04] border border-white/[0.08]">
+              <div className="px-4 py-3 border-b border-white/[0.07]">
+                <p className="text-white/40 text-xs font-bold uppercase tracking-widest">სერვის გადასახადი</p>
+              </div>
+
+              {/* Pickup row */}
+              <div className="px-4 py-3 flex items-center gap-3 border-b border-white/[0.06]">
+                <span className="text-lg shrink-0">🚶</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/70 text-sm font-bold">Pickup</span>
+                    <span className="text-white/30 text-xs bg-white/[0.07] px-1.5 py-0.5 rounded-full">{sb.pickupCount} შეკ.</span>
+                    <span className="text-amber-300/70 text-xs font-semibold">+5%</span>
+                  </div>
+                  <div className="text-white/35 text-xs mt-0.5">სერვისი: <span className="text-white/60 font-bold">₾{sb.pickupServiceTotal.toFixed(2)}</span></div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
+                <div className="text-right shrink-0">
+                  <div className="text-[10px] text-white/30 uppercase tracking-wider">პლატფ.</div>
+                  <div className="text-emerald-300 font-black text-sm">₾{sb.pickupServiceTotal.toFixed(2)}</div>
+                </div>
+              </div>
+
+              {/* Delivery row */}
+              <div className="px-4 py-3 flex items-center gap-3 border-b border-white/[0.06]">
+                <span className="text-lg shrink-0">🏖️</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/70 text-sm font-bold">მიტანა</span>
+                    <span className="text-white/30 text-xs bg-white/[0.07] px-1.5 py-0.5 rounded-full">{sb.deliveryCount} შეკ.</span>
+                    <span className="text-sky-300/70 text-xs font-semibold">+15%</span>
+                  </div>
+                  <div className="text-white/35 text-xs mt-0.5">სერვისი: <span className="text-white/60 font-bold">₾{sb.deliveryServiceTotal.toFixed(2)}</span> · 50% / 50%</div>
+                </div>
+                <div className="text-right shrink-0 space-y-0.5">
+                  <div className="text-[10px] text-white/30">კური. <span className="text-sky-300 font-black">₾{sb.courierShare.toFixed(2)}</span></div>
+                  <div className="text-[10px] text-white/30">პლ. <span className="text-emerald-300 font-black">₾{(sb.deliveryServiceTotal / 2).toFixed(2)}</span></div>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="px-4 py-3 grid grid-cols-2 gap-3 bg-white/[0.03]">
+                <div className="text-center">
+                  <div className="text-[10px] text-white/35 font-bold uppercase tracking-wider mb-1">🏍️ კურიერს ეკუთვნის</div>
+                  <div className="text-xl font-black text-sky-300">₾{sb.courierShare.toFixed(2)}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[10px] text-white/35 font-bold uppercase tracking-wider mb-1">🌊 პლატფორმა</div>
+                  <div className="text-xl font-black text-emerald-300">₾{sb.platformShare.toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {stats.byStatus && Object.keys(stats.byStatus).length > 0 && (
+            <div>
+              <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-3">სტატუსი</p>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(stats.byStatus as Record<string, number>).map(([st, cnt]) => (
+                  <div key={st} className="bg-white/[0.05] border border-white/[0.08] rounded-xl p-2.5 text-center">
+                    <div className="text-white font-black text-lg">{cnt}</div>
+                    <div className="text-white/35 text-[10px]">{STATUS_GE[st] ?? st}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {stats.byCourier?.length > 0 && (
+            <div>
+              <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-3">კურიერები</p>
+              <div className="space-y-2">
+                {stats.byCourier.map((c: any) => {
+                  const myCount = c.byRestaurant?.find((r: any) => r.id === user.restaurantId)?.count ?? c.deliveries;
+                  return (
+                    <div key={c.courierId} className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-3.5 flex items-center gap-3">
+                      <span className="text-xl">🏍️</span>
+                      <span className="text-white font-bold flex-1">{c.username}</span>
+                      <span className="text-sky-300 font-black">{myCount}</span>
+                      <span className="text-white/30 text-xs">ჩაბარება</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

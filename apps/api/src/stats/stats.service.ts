@@ -28,7 +28,22 @@ export class StatsService {
       const revenue = rOrders
         .filter((o) => o.status !== 'cancelled')
         .reduce((s, o) => s + o.total, 0);
-      return { id: r.id, name: r.name, emoji: r.emoji, orders: rOrders.length, revenue };
+      const rDone = rOrders.filter((o) => o.status === 'delivered');
+      const rPickup = rDone.filter((o) => o.deliveryType === 'pickup');
+      const rDelivery = rDone.filter((o) => o.deliveryType !== 'pickup');
+      const rPickupSvc = rPickup.reduce((s, o) => s + (o.serviceCharge ?? 0), 0);
+      const rDeliverySvc = rDelivery.reduce((s, o) => s + (o.serviceCharge ?? 0), 0);
+      return {
+        id: r.id, name: r.name, emoji: r.emoji, orders: rOrders.length, revenue,
+        serviceBreakdown: {
+          pickupCount: rPickup.length,
+          deliveryCount: rDelivery.length,
+          pickupServiceTotal: Math.round(rPickupSvc * 100) / 100,
+          deliveryServiceTotal: Math.round(rDeliverySvc * 100) / 100,
+          courierShare: Math.round((rDeliverySvc / 2) * 100) / 100,
+          platformShare: Math.round((rPickupSvc + rDeliverySvc / 2) * 100) / 100,
+        },
+      };
     }).sort((a, b) => b.orders - a.orders);
 
     const delivered = orders.filter((o) => o.status === 'delivered');
@@ -59,12 +74,26 @@ export class StatsService {
       .filter((o) => o.status !== 'cancelled')
       .reduce((s, o) => s + o.total, 0);
 
+    const allPickup = delivered.filter((o) => o.deliveryType === 'pickup');
+    const allDelivery = delivered.filter((o) => o.deliveryType !== 'pickup');
+    const allPickupSvc = allPickup.reduce((s, o) => s + (o.serviceCharge ?? 0), 0);
+    const allDeliverySvc = allDelivery.reduce((s, o) => s + (o.serviceCharge ?? 0), 0);
+    const serviceBreakdown = {
+      pickupCount: allPickup.length,
+      deliveryCount: allDelivery.length,
+      pickupServiceTotal: Math.round(allPickupSvc * 100) / 100,
+      deliveryServiceTotal: Math.round(allDeliverySvc * 100) / 100,
+      courierShare: Math.round((allDeliverySvc / 2) * 100) / 100,
+      platformShare: Math.round((allPickupSvc + allDeliverySvc / 2) * 100) / 100,
+    };
+
     return {
       totalOrders: orders.length,
       totalRevenue,
       byRestaurant,
       byCourier,
       byStatus,
+      serviceBreakdown,
       recent: orders.slice(0, 20),
     };
   }

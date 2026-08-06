@@ -6,7 +6,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('stats')
 @UseGuards(JwtGuard, RolesGuard)
-@Roles('superAdmin')
+@Roles('superAdmin', 'restaurantAdmin')
 export class StatsController {
   constructor(private stats: StatsService) {}
 
