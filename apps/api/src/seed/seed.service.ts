@@ -1,7 +1,6 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
-import { SEED_RESTAURANTS } from '../data/seed.data';
 
 @Injectable()
 export class SeedService implements OnModuleInit {
@@ -10,39 +9,8 @@ export class SeedService implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
 
   async onModuleInit() {
-    await this.seedRestaurants();
     await this.seedUsers();
     await this.migrateCourierRestaurantIds();
-  }
-
-  private async seedRestaurants() {
-    const superAdmin = await this.prisma.user.findUnique({ where: { username: 'superadmin' } });
-    if (superAdmin) return; // not first boot — respect manual resets
-
-    this.logger.log('Seeding restaurants and menu items...');
-    for (const seedR of SEED_RESTAURANTS) {
-      const { menu, ...restaurantData } = seedR;
-      await this.prisma.restaurant.create({ data: restaurantData });
-
-      let sortOrder = 0;
-      for (const [category, items] of Object.entries(menu)) {
-        for (const item of items) {
-          await this.prisma.menuItem.create({
-            data: {
-              name: item.name,
-              description: item.description ?? null,
-              price: item.price,
-              emoji: item.emoji,
-              special: item.special ?? false,
-              category,
-              sortOrder: sortOrder++,
-              restaurantId: seedR.id,
-            },
-          });
-        }
-      }
-    }
-    this.logger.log('Restaurants and menu seeded');
   }
 
   private async seedUsers() {
