@@ -1,21 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { WaveBackground } from '@/components/layout/WaveBackground';
 import { LanguageSelector } from '@/components/ui/LanguageSelector';
 import { useLang } from '@/contexts/LanguageContext';
-
-const PREVIEW = [
-  { emoji: '🏛️', nameKey: 'ოლიმპოსი', coverClass: 'grad-olympos',  delay: '[animation-delay:0.1s]' },
-  { emoji: '🌊', nameKey: 'ბლუ ბეი',   coverClass: 'grad-bluebay',  delay: '[animation-delay:0.2s]' },
-  { emoji: '🏖️', nameKey: 'სანაპირო', coverClass: 'grad-sanapiro', delay: '[animation-delay:0.3s]' },
-] as const;
+import { api } from '@/lib/api';
 
 export default function LandingPage() {
   const router = useRouter();
   const { t } = useLang();
   const [loungeId, setLoungeId] = useState('');
+  const [preview, setPreview] = useState<{ emoji: string; name: string; coverStyle: string }[]>([]);
+
+  useEffect(() => {
+    api.restaurants.list().then((list) => {
+      setPreview(
+        list.slice(0, 2).map((r: any) => ({
+          emoji: r.emoji ?? '🍽️',
+          name: r.name,
+          coverStyle: r.coverStyle ?? 'grad-olympos',
+        }))
+      );
+    }).catch(() => {});
+  }, []);
   const [focused, setFocused] = useState(false);
 
   function handleGo() {
@@ -101,25 +109,27 @@ export default function LandingPage() {
         </div>
 
         {/* ── Restaurant preview ───────────────────── */}
-        <div className="w-full space-y-3">
-          <p className="text-center text-white/25 text-xs font-semibold uppercase tracking-widest">
-            {t('restaurants_badge')}
-          </p>
+        {preview.length > 0 && (
+          <div className="w-full space-y-3">
+            <p className="text-center text-white/25 text-xs font-semibold uppercase tracking-widest">
+              {preview.length} · {t('restaurants_badge')}
+            </p>
 
-          <div className="grid grid-cols-3 gap-2.5">
-            {PREVIEW.map((r, i) => (
-              <div
-                key={r.nameKey}
-                className={`glass-card rounded-2xl p-3 flex flex-col items-center gap-2 text-center animate-fade-in ${r.delay}`}
-              >
-                <div className={`${r.coverClass} w-10 h-10 rounded-xl flex items-center justify-center text-2xl shadow-card`}>
-                  {r.emoji}
+            <div className={`grid gap-2.5 ${preview.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {preview.map((r, i) => (
+                <div
+                  key={r.name}
+                  className="glass-card rounded-2xl p-3 flex flex-col items-center gap-2 text-center animate-fade-in"
+                >
+                  <div className={`${r.coverStyle} w-10 h-10 rounded-xl flex items-center justify-center text-2xl shadow-card`}>
+                    {r.emoji}
+                  </div>
+                  <p className="text-white font-bold text-xs leading-tight">{r.name}</p>
                 </div>
-                <p className="text-white font-bold text-xs leading-tight">{r.nameKey}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <p className="text-white/20 text-xs text-center">{t('qr_hint')}</p>
       </div>

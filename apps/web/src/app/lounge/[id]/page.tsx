@@ -205,8 +205,8 @@ export default function LoungePage() {
               {restaurants.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-4 py-20 text-center px-6">
                   <span className="text-6xl">🌙</span>
-                  <h2 className="text-white font-black text-xl">ახლა დახურულია</h2>
-                  <p className="text-white/40 text-sm">რესტორნები ამ დროისთვის არ მუშაობს.<br/>მოგვიანებით სცადეთ.</p>
+                  <h2 className="text-white font-black text-xl">{t('closed_title')}</h2>
+                  <p className="text-white/40 text-sm">{t('closed_desc').split('\n').map((line, i) => <span key={i}>{line}{i === 0 && <br/>}</span>)}</p>
                 </div>
               ) : (
                 <RestaurantGrid
