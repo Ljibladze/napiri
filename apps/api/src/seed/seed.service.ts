@@ -16,8 +16,8 @@ export class SeedService implements OnModuleInit {
   }
 
   private async seedRestaurants() {
-    const count = await this.prisma.restaurant.count();
-    if (count > 0) return;
+    const superAdmin = await this.prisma.user.findUnique({ where: { username: 'superadmin' } });
+    if (superAdmin) return; // not first boot — respect manual resets
 
     this.logger.log('Seeding restaurants and menu items...');
     for (const seedR of SEED_RESTAURANTS) {
