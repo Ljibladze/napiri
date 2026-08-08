@@ -34,7 +34,7 @@ export function RestaurantGrid({ restaurants, onSelect, activeRestaurantId }: Re
             {!r.active && (
               <div className="absolute inset-0 z-20 bg-black/50 flex items-center justify-center">
                 <span className="px-4 py-2 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white text-sm font-bold">
-                  🔒 {t('closed_title')}
+                  🔒 {t('closed_menu_only')}
                 </span>
               </div>
             )}
@@ -68,12 +68,6 @@ export function RestaurantGrid({ restaurants, onSelect, activeRestaurantId }: Re
                   <span className="tag-pill">🕐 {r.deliveryTime}</span>
                 </div>
 
-                {/* Closed notice */}
-                {!r.active && (
-                  <p className="mt-2 text-xs font-semibold text-red-400">
-                    🔒 {t('closed_menu_only')}
-                  </p>
-                )}
               </div>
 
               {/* Arrow */}
