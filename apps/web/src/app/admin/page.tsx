@@ -76,6 +76,11 @@ function ImagePicker({ value, onChange }: { value: string; onChange: (url: strin
 // ── Menu Tab ──────────────────────────────────────────────────────────────────
 
 function MenuTab({ user }: { user: any }) {
+  const isSuperAdmin = user?.role === 'superAdmin';
+  const [restaurants, setRestaurants] = useState<any[]>([]);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>(user?.restaurantId ?? '');
+  const activeRestaurantId = isSuperAdmin ? selectedRestaurantId : (user?.restaurantId ?? '');
+
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<null | { type: 'add' | 'edit'; item?: any }>(null);
@@ -88,8 +93,15 @@ function MenuTab({ user }: { user: any }) {
   const [movingId, setMovingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.restaurantId) { setLoading(false); return; }
-    api.menu.list(user.restaurantId)
+    if (isSuperAdmin) {
+      api.restaurants.list().then(setRestaurants).catch(console.error);
+    }
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (!activeRestaurantId) { setLoading(false); return; }
+    setLoading(true);
+    api.menu.list(activeRestaurantId)
       .then(setItems)
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -101,7 +113,7 @@ function MenuTab({ user }: { user: any }) {
     if (!form.name.trim()) { setSaveError('სახელი სავალდებულოა'); return; }
     if (!form.price) { setSaveError('ფასი სავალდებულოა'); return; }
     if (!finalCategory.trim()) { setSaveError('კატეგორია სავალდებულოა'); return; }
-    if (!user?.restaurantId) { setSaveError('მომხმარებელს რესტორანი არ აქვს მიბმული'); return; }
+    if (!activeRestaurantId) { setSaveError('რესტორანი არჩეული არ არის'); return; }
     setSaving(true);
     try {
       const payload = {
@@ -114,7 +126,7 @@ function MenuTab({ user }: { user: any }) {
         special: form.special,
       };
       if (modal?.type === 'add') {
-        const created = await api.menu.create({ ...payload, restaurantId: user.restaurantId });
+        const created = await api.menu.create({ ...payload, restaurantId: activeRestaurantId });
         setItems((p) => [...p, created]);
       } else {
         const updated = await api.menu.update(modal!.item.id, payload);
@@ -197,11 +209,27 @@ function MenuTab({ user }: { user: any }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-white font-black">მენიუ</h3>
-        <button onClick={openAdd}
-          className="px-4 py-2 rounded-xl text-sm font-bold bg-ocean-600/70 border border-ocean-500/40 text-white active:scale-95 transition-all">
+        <button onClick={openAdd} disabled={!activeRestaurantId}
+          className="px-4 py-2 rounded-xl text-sm font-bold bg-ocean-600/70 border border-ocean-500/40 text-white active:scale-95 transition-all disabled:opacity-40">
           + კერძის დამატება
         </button>
       </div>
+
+      {isSuperAdmin && (
+        <div className="space-y-1.5">
+          <p className="text-white/35 text-xs font-bold uppercase tracking-widest">რესტორანი</p>
+          <select
+            value={selectedRestaurantId}
+            onChange={(e) => setSelectedRestaurantId(e.target.value)}
+            className="w-full bg-white/[0.07] border border-white/[0.12] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-ocean-500/40"
+          >
+            <option value="">— აირჩიე რესტორანი —</option>
+            {restaurants.map((r: any) => (
+              <option key={r.id} value={r.id}>{r.emoji} {r.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -959,7 +987,7 @@ export default function AdminPage() {
           className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'orders' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
           📋 შეკვეთები
         </button>
-        {currentUser?.role === 'restaurantAdmin' && (
+        {(currentUser?.role === 'restaurantAdmin' || currentUser?.role === 'superAdmin') && (
           <button onClick={() => setTab('menu')}
             className={`shrink-0 px-4 py-2 rounded-xl text-sm font-bold border transition-all active:scale-95 ${tab === 'menu' ? 'bg-white/[0.14] border-white/20 text-white' : 'bg-white/[0.04] border-transparent text-white/40'}`}>
             🍽️ მენიუ
