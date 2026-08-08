@@ -260,9 +260,12 @@ function MenuTab({ user }: { user: any }) {
                 ) : (
                   <>
                     <p className="text-white/40 text-xs font-bold uppercase tracking-wider flex-1">{cat}</p>
-                    <button onClick={() => { setRenamingCat(cat); setRenameVal(cat); }} className="text-white/25 hover:text-white/70 text-xs transition-colors px-1.5">✏️</button>
-                    <button onClick={() => moveCategory(cat, 'up')} disabled={catIdx === 0} className="text-white/25 hover:text-white/70 disabled:opacity-20 text-xs px-1 transition-colors">▲</button>
-                    <button onClick={() => moveCategory(cat, 'down')} disabled={catIdx === categories.length - 1} className="text-white/25 hover:text-white/70 disabled:opacity-20 text-xs px-1 transition-colors">▼</button>
+                    <button onClick={() => { setRenamingCat(cat); setRenameVal(cat); }}
+                      className="px-2 py-1 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-xs active:scale-95 transition-all">✏️</button>
+                    <button onClick={() => moveCategory(cat, 'up')} disabled={catIdx === 0}
+                      className="px-2 py-1 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-xs active:scale-95 transition-all disabled:opacity-20">▲</button>
+                    <button onClick={() => moveCategory(cat, 'down')} disabled={catIdx === categories.length - 1}
+                      className="px-2 py-1 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-xs active:scale-95 transition-all disabled:opacity-20">▼</button>
                   </>
                 )}
               </div>
@@ -270,9 +273,11 @@ function MenuTab({ user }: { user: any }) {
                 {catItems.map((item, itemIdx) => (
                   <div key={item.id} className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-3.5 flex items-center gap-3">
                     {/* Move up/down */}
-                    <div className="flex flex-col gap-0.5 shrink-0">
-                      <button onClick={() => moveItem(item, 'up')} disabled={itemIdx === 0 || movingId === item.id} className="text-white/20 hover:text-white/60 disabled:opacity-10 text-[10px] leading-none transition-colors">▲</button>
-                      <button onClick={() => moveItem(item, 'down')} disabled={itemIdx === catItems.length - 1 || movingId === item.id} className="text-white/20 hover:text-white/60 disabled:opacity-10 text-[10px] leading-none transition-colors">▼</button>
+                    <div className="flex flex-col gap-1 shrink-0">
+                      <button onClick={() => moveItem(item, 'up')} disabled={itemIdx === 0 || movingId === item.id}
+                        className="w-6 h-6 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-[10px] flex items-center justify-center active:scale-95 transition-all disabled:opacity-20">▲</button>
+                      <button onClick={() => moveItem(item, 'down')} disabled={itemIdx === catItems.length - 1 || movingId === item.id}
+                        className="w-6 h-6 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-[10px] flex items-center justify-center active:scale-95 transition-all disabled:opacity-20">▼</button>
                     </div>
                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/[0.07] border border-white/[0.08] flex items-center justify-center shrink-0">
                       {item.imageUrl ? (
