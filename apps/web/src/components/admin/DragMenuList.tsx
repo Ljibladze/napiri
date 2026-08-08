@@ -3,6 +3,7 @@ import { useState } from 'react';
 import {
   DndContext,
   closestCenter,
+  closestCorners,
   PointerSensor,
   useSensor,
   useSensors,
@@ -16,6 +17,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '@/lib/api';
+
+// Delay activation prevents accidental drags on quick taps/clicks
+const ACTIVATION = { activationConstraint: { delay: 150, tolerance: 8 } };
 
 // ── Drag handle icon ──────────────────────────────────────
 function DragHandle(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
@@ -71,9 +75,7 @@ function SortableItemRow({
         <button
           onClick={() => onEdit(item)}
           className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white/[0.06] border border-white/[0.10] text-white/70 active:scale-95 transition-all"
-        >
-          ✏️
-        </button>
+        >✏️</button>
         <button
           onClick={() => onDelete(item.id)}
           disabled={deletingId === item.id}
@@ -86,10 +88,62 @@ function SortableItemRow({
   );
 }
 
-// ── Sortable category section ─────────────────────────────
+// ── Items-only DnD (separate context prevents category interference) ──
+function CategoryItemsDnd({
+  catItems,
+  catIdx,
+  setItems,
+  onEdit,
+  onDelete,
+  deletingId,
+}: {
+  catItems: any[];
+  catIdx: number;
+  setItems: React.Dispatch<React.SetStateAction<any[]>>;
+  onEdit: (i: any) => void;
+  onDelete: (id: string) => void;
+  deletingId: string | null;
+}) {
+  const sensors = useSensors(useSensor(PointerSensor, ACTIVATION));
+
+  async function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = catItems.findIndex((i) => i.id === String(active.id));
+    const newIdx = catItems.findIndex((i) => i.id === String(over.id));
+    if (oldIdx === -1 || newIdx === -1) return;
+    const reordered = arrayMove(catItems, oldIdx, newIdx);
+    const results = await Promise.all(
+      reordered.map((item, i) => api.menu.update(item.id, { sortOrder: catIdx * 1000 + i * 10 })),
+    );
+    setItems((prev) => prev.map((i) => results.find((r) => r.id === i.id) ?? i));
+  }
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <SortableContext items={catItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2 pl-5">
+          {catItems.map((item) => (
+            <SortableItemRow
+              key={item.id}
+              item={item}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              deletingId={deletingId}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+// ── Sortable category section (uses outer/category-level context) ──
 function SortableCategorySection({
   cat,
   catItems,
+  catIdx,
+  setItems,
   onEdit,
   onDelete,
   deletingId,
@@ -102,6 +156,8 @@ function SortableCategorySection({
 }: {
   cat: string;
   catItems: any[];
+  catIdx: number;
+  setItems: React.Dispatch<React.SetStateAction<any[]>>;
   onEdit: (i: any) => void;
   onDelete: (id: string) => void;
   deletingId: string | null;
@@ -114,8 +170,6 @@ function SortableCategorySection({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: `cat:${cat}` });
-
-  const itemIds = catItems.map((i) => i.id);
 
   return (
     <div
@@ -147,27 +201,20 @@ function SortableCategorySection({
             <button
               onClick={() => onStartRename(cat)}
               className="px-2 py-1 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-xs active:scale-95 transition-all"
-            >
-              ✏️
-            </button>
+            >✏️</button>
           </>
         )}
       </div>
 
-      {/* Items */}
-      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2 pl-5">
-          {catItems.map((item) => (
-            <SortableItemRow
-              key={item.id}
-              item={item}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              deletingId={deletingId}
-            />
-          ))}
-        </div>
-      </SortableContext>
+      {/* Items in their own isolated DndContext */}
+      <CategoryItemsDnd
+        catItems={catItems}
+        catIdx={catIdx}
+        setItems={setItems}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        deletingId={deletingId}
+      />
     </div>
   );
 }
@@ -185,61 +232,33 @@ export function DragMenuList({ items, setItems, onEdit, onDelete, deletingId }: 
   const [renamingCat, setRenamingCat] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState('');
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, ACTIVATION));
 
   const sorted = [...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const cats = [...new Set(sorted.map((i) => i.category))] as string[];
   const catIds = cats.map((c) => `cat:${c}`);
 
-  async function onDragEnd(event: DragEndEvent) {
+  async function onCategoryDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    const activeCat = String(active.id).slice(4);
+    const overCat = String(over.id).slice(4);
+    const oldIdx = cats.indexOf(activeCat);
+    const newIdx = cats.indexOf(overCat);
+    if (oldIdx === -1 || newIdx === -1) return;
 
-    const activeStr = String(active.id);
-    const overStr = String(over.id);
+    const newCats = arrayMove(cats, oldIdx, newIdx);
+    const lo = Math.min(oldIdx, newIdx);
+    const hi = Math.max(oldIdx, newIdx);
 
-    if (activeStr.startsWith('cat:') && overStr.startsWith('cat:')) {
-      // ── Category reorder ──
-      const activeCat = activeStr.slice(4);
-      const overCat = overStr.slice(4);
-      const oldIdx = cats.indexOf(activeCat);
-      const newIdx = cats.indexOf(overCat);
-      if (oldIdx === -1 || newIdx === -1) return;
-
-      const newCats = arrayMove(cats, oldIdx, newIdx);
-      const lo = Math.min(oldIdx, newIdx);
-      const hi = Math.max(oldIdx, newIdx);
-
-      const updates: Promise<any>[] = [];
-      for (let i = lo; i <= hi; i++) {
-        const c = newCats[i];
-        sorted.filter((x) => x.category === c).forEach((x, j) => {
-          updates.push(api.menu.update(x.id, { sortOrder: i * 1000 + j * 10 }));
-        });
-      }
-      const results = await Promise.all(updates);
-      setItems((prev) => prev.map((i) => results.find((r) => r.id === i.id) ?? i));
-    } else if (!activeStr.startsWith('cat:') && !overStr.startsWith('cat:')) {
-      // ── Item reorder within category ──
-      const activeItem = sorted.find((i) => i.id === activeStr);
-      const overItem = sorted.find((i) => i.id === overStr);
-      if (!activeItem || !overItem || activeItem.category !== overItem.category) return;
-
-      const catItems = sorted.filter((i) => i.category === activeItem.category);
-      const catIdx = cats.indexOf(activeItem.category);
-      const oldIdx = catItems.findIndex((i) => i.id === activeStr);
-      const newIdx = catItems.findIndex((i) => i.id === overStr);
-
-      const newCatItems = arrayMove(catItems, oldIdx, newIdx);
-      const results = await Promise.all(
-        newCatItems.map((item, i) =>
-          api.menu.update(item.id, { sortOrder: catIdx * 1000 + i * 10 }),
-        ),
-      );
-      setItems((prev) => prev.map((i) => results.find((r) => r.id === i.id) ?? i));
+    const updates: Promise<any>[] = [];
+    for (let i = lo; i <= hi; i++) {
+      sorted.filter((x) => x.category === newCats[i]).forEach((x, j) => {
+        updates.push(api.menu.update(x.id, { sortOrder: i * 1000 + j * 10 }));
+      });
     }
+    const results = await Promise.all(updates);
+    setItems((prev) => prev.map((i) => results.find((r) => r.id === i.id) ?? i));
   }
 
   async function handleRenameCategory(oldName: string) {
@@ -252,14 +271,16 @@ export function DragMenuList({ items, setItems, onEdit, onDelete, deletingId }: 
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onCategoryDragEnd}>
       <SortableContext items={catIds} strategy={verticalListSortingStrategy}>
         <div className="space-y-5">
-          {cats.map((cat) => (
+          {cats.map((cat, catIdx) => (
             <SortableCategorySection
               key={cat}
               cat={cat}
               catItems={sorted.filter((i) => i.category === cat)}
+              catIdx={catIdx}
+              setItems={setItems}
               onEdit={onEdit}
               onDelete={onDelete}
               deletingId={deletingId}
