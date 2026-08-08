@@ -20,6 +20,7 @@ const T = {
     qr_hint:          'QR კოდი ავტომატურად გადაგიყვანთ ☀️',
     closed_title:     'ახლა დახურულია',
     closed_desc:      'რესტორნები ამ დროისთვის არ მუშაობს.\nმოგვიანებით სცადეთ.',
+    closed_menu_only: 'დაკეტილია — მხოლოდ მენიუს ნახვა',
 
     /* ── lounge header ──────────────── */
     hello:            'გამარჯობა! 👋',
@@ -120,6 +121,7 @@ const T = {
     qr_hint:          'QR code takes you there directly ☀️',
     closed_title:     'Currently closed',
     closed_desc:      'Restaurants are not working right now.\nPlease try again later.',
+    closed_menu_only: 'Closed — menu view only',
 
     hello:            'Hello! 👋',
     what_today:       'What would you like today?',
@@ -211,6 +213,7 @@ const T = {
     qr_hint:          'QR-код перенесёт вас автоматически ☀️',
     closed_title:     'Сейчас закрыто',
     closed_desc:      'Рестораны сейчас не работают.\nПопробуйте позже.',
+    closed_menu_only: 'Закрыто — только просмотр меню',
 
     hello:            'Привет! 👋',
     what_today:       'Что желаете сегодня?',
@@ -302,6 +305,7 @@ const T = {
     qr_hint:          'QR կոդն ավտոմատ կտեղափոխի ☀️',
     closed_title:     'Փակ է',
     closed_desc:      'Ռեստորաններն այժմ չեն աշխատում.\nՓordzek avel ushacs.',
+    closed_menu_only: 'Փակ — միայն մենյուի դիտում',
 
     hello:            'Բարև! 👋',
     what_today:       'Ի՞նչ կցանկանայիք այսօր:',
@@ -393,6 +397,7 @@ const T = {
     qr_hint:          'QR kod sizi otomatik yönlendirir ☀️',
     closed_title:     'Şu an kapalı',
     closed_desc:      'Restoranlar şu an çalışmıyor.\nLütfen daha sonra tekrar deneyin.',
+    closed_menu_only: 'Kapalı — sadece menü görüntüleme',
 
     hello:            'Merhaba! 👋',
     what_today:       'Bugün ne istersiniz?',

@@ -7,7 +7,6 @@ export class RestaurantsService {
 
   async findAll() {
     return this.prisma.restaurant.findMany({
-      where: { active: true },
       orderBy: { name: 'asc' },
       select: {
         id: true,
@@ -18,6 +17,7 @@ export class RestaurantsService {
         rating: true,
         deliveryTime: true,
         tags: true,
+        active: true,
       },
     });
   }

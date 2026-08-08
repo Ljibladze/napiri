@@ -17,6 +17,7 @@ export interface RestaurantSummary {
   rating: number;
   deliveryTime: string;
   tags: string[];
+  active: boolean;
 }
 
 export interface RestaurantDetail extends RestaurantSummary {

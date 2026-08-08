@@ -21,6 +21,7 @@ export function MenuView({
   onBack, onOpenCart, cartTotal, cartCount,
 }: MenuViewProps) {
   const { t } = useLang();
+  const isOpen = (restaurant as any).active !== false;
   const categories = Object.keys(restaurant.menu);
   const [activeCategory, setActiveCategory] = useState(categories[0] ?? '');
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
@@ -63,6 +64,13 @@ export function MenuView({
           </div>
         </div>
       </div>
+
+      {/* ── Closed banner ────────────────────────────── */}
+      {!isOpen && (
+        <div className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 border-b border-red-500/20 text-red-300 text-sm font-semibold">
+          🔒 {t('closed_menu_only')}
+        </div>
+      )}
 
       {/* ── Category tabs ─────────────────────────────── */}
       <div className="sticky top-0 z-10 flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide category-bar">
@@ -118,8 +126,8 @@ export function MenuView({
                   <p className={`font-black text-base mt-1.5 ${item.special ? 'text-amber-400' : 'text-sky-300'}`}>{formatPrice(item.price)}</p>
                 </div>
 
-                {/* Qty controls */}
-                {qty === 0 ? (
+                {/* Qty controls — hidden when restaurant is closed */}
+                {isOpen && (qty === 0 ? (
                   <button
                     onClick={() => onAdd(item)}
                     className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xl text-white font-black active:scale-90 transition-transform ${item.special ? 'bg-amber-500 shadow-[0_4px_16px_rgba(245,158,11,0.5)]' : 'bg-btn-ocean shadow-ocean'}`}
@@ -142,7 +150,7 @@ export function MenuView({
                       +
                     </button>
                   </div>
-                )}
+                ))}
               </div>
             </div>
           );
@@ -170,8 +178,8 @@ export function MenuView({
         </div>
       )}
 
-      {/* ── Sticky cart CTA ─────────────────────────────── */}
-      {cartCount > 0 && (
+      {/* ── Sticky cart CTA — only when restaurant is open ── */}
+      {isOpen && cartCount > 0 && (
         <div className="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-10 bg-gradient-to-t from-ocean-950 via-ocean-950/80 to-transparent">
           <button
             onClick={onOpenCart}

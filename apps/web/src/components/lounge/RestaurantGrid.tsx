@@ -17,7 +17,7 @@ export function RestaurantGrid({ restaurants, onSelect, activeRestaurantId }: Re
         <button
           key={r.id}
           onClick={() => onSelect(r)}
-          className="group w-full text-left rounded-3xl overflow-hidden scroll-reveal active:scale-[0.98] transition-transform duration-150 shadow-card"
+          className={`group w-full text-left rounded-3xl overflow-hidden scroll-reveal active:scale-[0.98] transition-transform duration-150 shadow-card ${!r.active ? 'opacity-70' : ''}`}
         >
           {/* ── Gradient header ─────────────────────── */}
           <div className={`${r.coverClass} relative h-52 flex items-center justify-center overflow-hidden`}>
@@ -29,6 +29,15 @@ export function RestaurantGrid({ restaurants, onSelect, activeRestaurantId }: Re
                 {r.emoji}
               </span>
             </>
+
+            {/* Closed overlay */}
+            {!r.active && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <span className="px-4 py-2 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-sm font-bold">
+                  🔒 {t('closed_title')}
+                </span>
+              </div>
+            )}
 
             {/* Rating badge */}
             <div className="absolute top-3 left-3 flex items-center gap-1 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/[0.15]">
