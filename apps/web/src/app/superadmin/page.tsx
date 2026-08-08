@@ -295,6 +295,9 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
   const [form, setForm] = useState({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', newCategory: '', special: false });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [renamingCat, setRenamingCat] = useState<string | null>(null);
+  const [renameVal, setRenameVal] = useState('');
+  const [movingId, setMovingId] = useState<string | null>(null);
 
   const loadItems = useCallback(async (r: any) => {
     setSelectedR(r); setLoadingItems(true);
@@ -306,10 +309,14 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
     if (!form.name || !form.price || !finalCategory || !selectedR) return;
     setSaving(true);
     try {
-      const finalCategory = form.category === '__new__' ? form.newCategory : form.category;
-      const payload = { name: form.name, description: form.description || undefined, price: parseFloat(form.price), emoji: form.emoji, imageUrl: form.imageUrl || undefined, category: finalCategory, special: form.special, restaurantId: selectedR.id };
-      if (modal?.type === 'add') { const created = await api.menu.create(payload); setItems((p) => [...p, created]); }
-      else { const u = await api.menu.update(modal!.item.id, payload); setItems((p) => p.map((i) => i.id === u.id ? u : i)); }
+      const payload = { name: form.name, description: form.description || undefined, price: parseFloat(form.price), emoji: form.emoji, imageUrl: form.imageUrl || undefined, category: finalCategory, special: form.special };
+      if (modal?.type === 'add') {
+        const created = await api.menu.create({ ...payload, restaurantId: selectedR.id });
+        setItems((p) => [...p, created]);
+      } else {
+        const u = await api.menu.update(modal!.item.id, payload);
+        setItems((p) => p.map((i) => i.id === u.id ? u : i));
+      }
       setModal(null);
     } catch (e: any) { alert(e.message ?? 'შეცდომა'); }
     finally { setSaving(false); }
@@ -322,7 +329,50 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
     catch (e: any) { alert(e.message); } finally { setDeletingId(null); }
   }
 
-  const categories = [...new Set(items.map((i) => i.category))];
+  async function handleRenameCategory(oldName: string) {
+    const catItems = items.filter((i) => i.category === oldName);
+    for (const item of catItems) {
+      const updated = await api.menu.update(item.id, { category: renameVal.trim() });
+      setItems((p) => p.map((i) => i.id === updated.id ? updated : i));
+    }
+    setRenamingCat(null);
+  }
+
+  async function moveItem(item: any, dir: 'up' | 'down') {
+    const catItems = sortedItems.filter((i) => i.category === item.category);
+    const idx = catItems.findIndex((i) => i.id === item.id);
+    const swap = dir === 'up' ? catItems[idx - 1] : catItems[idx + 1];
+    if (!swap) return;
+    setMovingId(item.id);
+    try {
+      const newA = swap.sortOrder ?? 0;
+      const newB = item.sortOrder ?? 0;
+      const [a, b] = await Promise.all([
+        api.menu.update(item.id, { sortOrder: newA }),
+        api.menu.update(swap.id, { sortOrder: newB }),
+      ]);
+      setItems((p) => p.map((i) => i.id === a.id ? a : i.id === b.id ? b : i));
+    } finally { setMovingId(null); }
+  }
+
+  async function moveCategory(cat: string, dir: 'up' | 'down') {
+    const idx = categories.indexOf(cat);
+    const swapCat = dir === 'up' ? categories[idx - 1] : categories[idx + 1];
+    if (!swapCat) return;
+    const catItems = sortedItems.filter((i) => i.category === cat);
+    const swapItems = sortedItems.filter((i) => i.category === swapCat);
+    const allOrders = [...catItems, ...swapItems].map((i) => i.sortOrder ?? 0).sort((a, b) => a - b);
+    const movingGroup = dir === 'up' ? catItems : swapItems;
+    const stayGroup   = dir === 'up' ? swapItems : catItems;
+    const updates = await Promise.all([
+      ...movingGroup.map((item, i) => api.menu.update(item.id, { sortOrder: allOrders[i] })),
+      ...stayGroup.map((item, i)   => api.menu.update(item.id, { sortOrder: allOrders[movingGroup.length + i] })),
+    ]);
+    setItems((p) => { let next = [...p]; for (const u of updates) next = next.map((i) => i.id === u.id ? u : i); return next; });
+  }
+
+  const sortedItems = [...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const categories = [...new Set(sortedItems.map((i) => i.category))] as string[];
 
   return (
     <div className="space-y-4">
@@ -343,12 +393,42 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
             <h3 className="text-white font-black">{selectedR.emoji} {selectedR.name}</h3>
             <Btn onClick={() => { setForm({ name: '', description: '', price: '', emoji: '🍽️', imageUrl: '', category: '', newCategory: '', special: false }); setModal({ type: 'add' }); }}>+ დამატება</Btn>
           </div>
-          {loadingItems ? <div className="flex justify-center py-8"><Spinner /></div> : categories.map((cat) => (
+          {loadingItems ? <div className="flex justify-center py-8"><Spinner /></div> : categories.map((cat, catIdx) => {
+            const catItems = sortedItems.filter((i) => i.category === cat);
+            return (
             <div key={cat}>
-              <p className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2">{cat}</p>
+              {/* Category header with rename + reorder */}
+              <div className="flex items-center gap-1.5 mb-2">
+                {renamingCat === cat ? (
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <input value={renameVal} onChange={(e) => setRenameVal(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleRenameCategory(cat); if (e.key === 'Escape') setRenamingCat(null); }}
+                      autoFocus className="flex-1 bg-white/[0.08] border border-ocean-500/40 rounded-lg px-2 py-1 text-white text-xs font-bold focus:outline-none" />
+                    <button onClick={() => handleRenameCategory(cat)} className="text-xs px-2 py-1 rounded-lg bg-ocean-600/60 text-white font-bold">✓</button>
+                    <button onClick={() => setRenamingCat(null)} className="text-xs px-2 py-1 rounded-lg bg-white/[0.08] text-white/50 font-bold">✕</button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-white/40 text-xs font-bold uppercase tracking-wider flex-1">{cat}</p>
+                    <button onClick={() => { setRenamingCat(cat); setRenameVal(cat); }}
+                      className="px-2 py-1 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-xs active:scale-95 transition-all">✏️</button>
+                    <button onClick={() => moveCategory(cat, 'up')} disabled={catIdx === 0}
+                      className="px-2 py-1 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-xs active:scale-95 transition-all disabled:opacity-20">▲</button>
+                    <button onClick={() => moveCategory(cat, 'down')} disabled={catIdx === categories.length - 1}
+                      className="px-2 py-1 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-xs active:scale-95 transition-all disabled:opacity-20">▼</button>
+                  </>
+                )}
+              </div>
               <div className="space-y-2">
-                {items.filter((i) => i.category === cat).map((item) => (
-                  <Card key={item.id} className="flex items-center gap-3 py-3">
+                {catItems.map((item, itemIdx) => (
+                  <Card key={item.id} className="flex items-center gap-2 py-3">
+                    {/* Item move up/down */}
+                    <div className="flex flex-col gap-1 shrink-0">
+                      <button onClick={() => moveItem(item, 'up')} disabled={itemIdx === 0 || movingId === item.id}
+                        className="w-6 h-6 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-[10px] flex items-center justify-center active:scale-95 transition-all disabled:opacity-20">▲</button>
+                      <button onClick={() => moveItem(item, 'down')} disabled={itemIdx === catItems.length - 1 || movingId === item.id}
+                        className="w-6 h-6 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-[10px] flex items-center justify-center active:scale-95 transition-all disabled:opacity-20">▼</button>
+                    </div>
                     <div className="w-11 h-11 rounded-xl overflow-hidden bg-white/[0.07] border border-white/[0.08] flex items-center justify-center shrink-0">
                       {item.imageUrl ? <img src={item.imageUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-xl">{item.emoji}</span>}
                     </div>
@@ -365,7 +445,8 @@ function MenuTab({ restaurants }: { restaurants: any[] }) {
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {modal && (

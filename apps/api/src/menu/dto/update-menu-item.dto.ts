@@ -24,4 +24,7 @@ export class UpdateMenuItemDto {
 
   @IsOptional() @IsNumber()
   sortOrder?: number;
+
+  @IsOptional() @IsString()
+  restaurantId?: string;
 }
