@@ -67,6 +67,13 @@ export function RestaurantGrid({ restaurants, onSelect, activeRestaurantId }: Re
                   ))}
                   <span className="tag-pill">🕐 {r.deliveryTime}</span>
                 </div>
+
+                {/* Closed notice */}
+                {!r.active && (
+                  <p className="mt-2 text-xs font-semibold text-red-400">
+                    🔒 {t('closed_menu_only')}
+                  </p>
+                )}
               </div>
 
               {/* Arrow */}
