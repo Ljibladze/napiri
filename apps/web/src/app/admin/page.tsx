@@ -173,30 +173,29 @@ function MenuTab({ user }: { user: any }) {
   async function moveItem(item: any, dir: 'up' | 'down') {
     const catItems = sortedItems.filter((i) => i.category === item.category);
     const idx = catItems.findIndex((i) => i.id === item.id);
-    const swap = dir === 'up' ? catItems[idx - 1] : catItems[idx + 1];
-    if (!swap) return;
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= catItems.length) return;
     setMovingId(item.id);
     try {
+      const catBase = categories.indexOf(item.category) * 1000;
       const [a, b] = await Promise.all([
-        api.menu.update(item.id, { sortOrder: swap.sortOrder }),
-        api.menu.update(swap.id, { sortOrder: item.sortOrder }),
+        api.menu.update(item.id, { sortOrder: catBase + swapIdx * 10 }),
+        api.menu.update(catItems[swapIdx].id, { sortOrder: catBase + idx * 10 }),
       ]);
       setItems((p) => p.map((i) => i.id === a.id ? a : i.id === b.id ? b : i));
     } finally { setMovingId(null); }
   }
 
   async function moveCategory(cat: string, dir: 'up' | 'down') {
-    const idx = categories.indexOf(cat);
-    const swapCat = dir === 'up' ? categories[idx - 1] : categories[idx + 1];
+    const catIdx = categories.indexOf(cat);
+    const swapIdx = dir === 'up' ? catIdx - 1 : catIdx + 1;
+    const swapCat = categories[swapIdx];
     if (!swapCat) return;
     const catItems = sortedItems.filter((i) => i.category === cat);
     const swapItems = sortedItems.filter((i) => i.category === swapCat);
-    const allOrders = [...catItems, ...swapItems].map((i) => i.sortOrder).sort((a, b) => a - b);
-    const movingGroup = dir === 'up' ? catItems : swapItems;
-    const stayGroup   = dir === 'up' ? swapItems : catItems;
     const updates = await Promise.all([
-      ...movingGroup.map((item, i) => api.menu.update(item.id, { sortOrder: allOrders[i] })),
-      ...stayGroup.map((item, i)   => api.menu.update(item.id, { sortOrder: allOrders[movingGroup.length + i] })),
+      ...catItems.map((item, i) => api.menu.update(item.id, { sortOrder: swapIdx * 1000 + i * 10 })),
+      ...swapItems.map((item, i) => api.menu.update(item.id, { sortOrder: catIdx * 1000 + i * 10 })),
     ]);
     setItems((p) => {
       let next = [...p];
