@@ -18,8 +18,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { api } from '@/lib/api';
 
-// Delay activation prevents accidental drags on quick taps/clicks
-const ACTIVATION = { activationConstraint: { delay: 150, tolerance: 8 } };
+// Drag activates only after moving 15px — clicks and taps never trigger drag
+const ACTIVATION = { activationConstraint: { distance: 15 } };
 
 // ── Drag handle icon ──────────────────────────────────────
 function DragHandle(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
