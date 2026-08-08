@@ -33,6 +33,7 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  phoneNumber?: string;
   courierId?: string;
   assignedCourierId?: string;
 }
