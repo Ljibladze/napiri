@@ -62,6 +62,7 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  phoneNumber?: string;
   courierId?: string;
   assignedCourierId?: string;
 }
@@ -73,4 +74,5 @@ export interface CreateOrderPayload {
   paymentMethod: PaymentMethod;
   deliveryType: DeliveryType;
   notes?: string;
+  phoneNumber: string;
 }
