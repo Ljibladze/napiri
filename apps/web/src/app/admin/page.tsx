@@ -99,13 +99,13 @@ function MenuTab({ user }: { user: any }) {
   }, [isSuperAdmin]);
 
   useEffect(() => {
-    if (!activeRestaurantId) { setLoading(false); return; }
+    if (!activeRestaurantId) { setItems([]); setLoading(false); return; }
     setLoading(true);
     api.menu.list(activeRestaurantId)
       .then(setItems)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [activeRestaurantId]);
 
   async function handleSave() {
     setSaveError('');
