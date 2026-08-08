@@ -21,7 +21,8 @@ export class MenuService {
   async update(id: string, dto: UpdateMenuItemDto) {
     const item = await this.prisma.menuItem.findUnique({ where: { id } });
     if (!item) throw new NotFoundException('Menu item not found');
-    return this.prisma.menuItem.update({ where: { id }, data: dto });
+    const { restaurantId: _r, ...data } = dto as any;
+    return this.prisma.menuItem.update({ where: { id }, data });
   }
 
   async remove(id: string) {
