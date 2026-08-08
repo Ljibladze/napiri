@@ -47,6 +47,7 @@ export class OrdersService {
         paymentMethod: dto.paymentMethod,
         status: 'pending',
         notes: dto.notes ?? null,
+        phoneNumber: dto.phoneNumber,
         assignedCourierId,
         items: {
           create: dto.items.map((item) => ({
@@ -165,6 +166,7 @@ export class OrdersService {
       paymentMethod: raw.paymentMethod as any,
       status: raw.status as OrderStatus,
       notes: raw.notes ?? undefined,
+      phoneNumber: raw.phoneNumber ?? undefined,
       courierId: raw.courierId ?? undefined,
       assignedCourierId: raw.assignedCourierId ?? undefined,
       createdAt: raw.createdAt instanceof Date ? raw.createdAt.toISOString() : raw.createdAt,

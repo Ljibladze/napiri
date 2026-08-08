@@ -59,6 +59,7 @@ model Order {
   paymentMethod   String
   status          String      @default("pending")
   notes               String?
+  phoneNumber         String?
   courierId           String?
   assignedCourierId   String?
   createdAt           DateTime    @default(now())

@@ -13,7 +13,7 @@ interface CartSheetProps {
   loungeId: string;
   onUpdateQuantity: (id: string, qty: number) => void;
   onClose: () => void;
-  onSubmit: (paymentMethod: PaymentMethod, notes: string, deliveryType: DeliveryType) => Promise<void>;
+  onSubmit: (paymentMethod: PaymentMethod, notes: string, deliveryType: DeliveryType, phone: string) => Promise<void>;
 }
 
 const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'terminal', 'transfer'];
@@ -30,6 +30,8 @@ export function CartSheet({
   const [payment, setPayment] = useState<PaymentMethod>('cash');
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('delivery');
   const [notes, setNotes] = useState('');
+  const [phone, setPhone] = useState('');
+  const [phoneFocused, setPhoneFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notesFocused, setNotesFocused] = useState(false);
 
@@ -40,8 +42,9 @@ export function CartSheet({
   const totalItems  = items.reduce((s, i) => s + i.quantity, 0);
 
   async function handleOrder() {
+    if (!phone.trim()) return;
     setLoading(true);
-    try { await onSubmit(payment, notes, deliveryType); }
+    try { await onSubmit(payment, notes, deliveryType, phone.trim()); }
     finally { setLoading(false); }
   }
 
@@ -184,6 +187,25 @@ export function CartSheet({
             </div>
           </div>
 
+          {/* Phone number */}
+          <div className="space-y-2.5">
+            <p className="text-white/35 text-xs font-bold uppercase tracking-widest">საკონტაქტო ნომერი <span className="text-red-400">*</span></p>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+995 5XX XXX XXX"
+              className={[
+                'w-full rounded-xl px-4 py-3.5 text-white placeholder-white/20 text-sm focus:outline-none transition-all',
+                phoneFocused
+                  ? 'ring-2 ring-ocean-600/50 bg-white/[0.08] border border-ocean-600/30'
+                  : 'bg-white/[0.05] border border-white/[0.08]',
+              ].join(' ')}
+              onFocus={() => setPhoneFocused(true)}
+              onBlur={() => setPhoneFocused(false)}
+            />
+          </div>
+
           {/* Notes */}
           <div className="space-y-2.5">
             <p className="text-white/35 text-xs font-bold uppercase tracking-widest">{t('note_optional')}</p>
@@ -213,7 +235,7 @@ export function CartSheet({
           </div>
           <button
             onClick={handleOrder}
-            disabled={loading}
+            disabled={loading || !phone.trim()}
             className="w-full py-4 rounded-2xl font-black text-white text-base transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 bg-btn-sand shadow-sand"
           >
             {loading ? (

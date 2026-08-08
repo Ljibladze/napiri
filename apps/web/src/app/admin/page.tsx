@@ -83,6 +83,9 @@ function MenuTab({ user }: { user: any }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [renamingCat, setRenamingCat] = useState<string | null>(null);
+  const [renameVal, setRenameVal] = useState('');
+  const [movingId, setMovingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.restaurantId) { setLoading(false); return; }
@@ -109,10 +112,9 @@ function MenuTab({ user }: { user: any }) {
         imageUrl: form.imageUrl || undefined,
         category: finalCategory,
         special: form.special,
-        restaurantId: user.restaurantId,
       };
       if (modal?.type === 'add') {
-        const created = await api.menu.create(payload);
+        const created = await api.menu.create({ ...payload, restaurantId: user.restaurantId });
         setItems((p) => [...p, created]);
       } else {
         const updated = await api.menu.update(modal!.item.id, payload);
@@ -144,7 +146,52 @@ function MenuTab({ user }: { user: any }) {
     setModal({ type: 'edit', item });
   }
 
-  const categories = [...new Set(items.map((i) => i.category))];
+  const sortedItems = [...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const categories = [...new Set(sortedItems.map((i) => i.category))];
+
+  async function handleRenameCategory(oldName: string) {
+    const catItems = items.filter((i) => i.category === oldName);
+    for (const item of catItems) {
+      const updated = await api.menu.update(item.id, { category: renameVal.trim() });
+      setItems((p) => p.map((i) => i.id === updated.id ? updated : i));
+    }
+    setRenamingCat(null);
+  }
+
+  async function moveItem(item: any, dir: 'up' | 'down') {
+    const catItems = sortedItems.filter((i) => i.category === item.category);
+    const idx = catItems.findIndex((i) => i.id === item.id);
+    const swap = dir === 'up' ? catItems[idx - 1] : catItems[idx + 1];
+    if (!swap) return;
+    setMovingId(item.id);
+    try {
+      const [a, b] = await Promise.all([
+        api.menu.update(item.id, { sortOrder: swap.sortOrder }),
+        api.menu.update(swap.id, { sortOrder: item.sortOrder }),
+      ]);
+      setItems((p) => p.map((i) => i.id === a.id ? a : i.id === b.id ? b : i));
+    } finally { setMovingId(null); }
+  }
+
+  async function moveCategory(cat: string, dir: 'up' | 'down') {
+    const idx = categories.indexOf(cat);
+    const swapCat = dir === 'up' ? categories[idx - 1] : categories[idx + 1];
+    if (!swapCat) return;
+    const catItems = sortedItems.filter((i) => i.category === cat);
+    const swapItems = sortedItems.filter((i) => i.category === swapCat);
+    const allOrders = [...catItems, ...swapItems].map((i) => i.sortOrder).sort((a, b) => a - b);
+    const movingGroup = dir === 'up' ? catItems : swapItems;
+    const stayGroup   = dir === 'up' ? swapItems : catItems;
+    const updates = await Promise.all([
+      ...movingGroup.map((item, i) => api.menu.update(item.id, { sortOrder: allOrders[i] })),
+      ...stayGroup.map((item, i)   => api.menu.update(item.id, { sortOrder: allOrders[movingGroup.length + i] })),
+    ]);
+    setItems((p) => {
+      let next = [...p];
+      for (const u of updates) next = next.map((i) => i.id === u.id ? u : i);
+      return next;
+    });
+  }
 
   return (
     <div className="space-y-4">
@@ -164,12 +211,41 @@ function MenuTab({ user }: { user: any }) {
         <div className="text-center py-12 text-white/30 text-sm">მენიუ ცარიელია</div>
       ) : (
         <div className="space-y-4">
-          {categories.map((cat) => (
+          {categories.map((cat, catIdx) => {
+            const catItems = sortedItems.filter((i) => i.category === cat);
+            return (
             <div key={cat}>
-              <p className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2">{cat}</p>
+              {/* Category header */}
+              <div className="flex items-center gap-2 mb-2">
+                {renamingCat === cat ? (
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <input
+                      value={renameVal}
+                      onChange={(e) => setRenameVal(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleRenameCategory(cat); if (e.key === 'Escape') setRenamingCat(null); }}
+                      autoFocus
+                      className="flex-1 bg-white/[0.08] border border-ocean-500/40 rounded-lg px-2 py-1 text-white text-xs font-bold focus:outline-none"
+                    />
+                    <button onClick={() => handleRenameCategory(cat)} className="text-xs px-2 py-1 rounded-lg bg-ocean-600/60 text-white font-bold">✓</button>
+                    <button onClick={() => setRenamingCat(null)} className="text-xs px-2 py-1 rounded-lg bg-white/[0.08] text-white/50 font-bold">✕</button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-white/40 text-xs font-bold uppercase tracking-wider flex-1">{cat}</p>
+                    <button onClick={() => { setRenamingCat(cat); setRenameVal(cat); }} className="text-white/25 hover:text-white/70 text-xs transition-colors px-1.5">✏️</button>
+                    <button onClick={() => moveCategory(cat, 'up')} disabled={catIdx === 0} className="text-white/25 hover:text-white/70 disabled:opacity-20 text-xs px-1 transition-colors">▲</button>
+                    <button onClick={() => moveCategory(cat, 'down')} disabled={catIdx === categories.length - 1} className="text-white/25 hover:text-white/70 disabled:opacity-20 text-xs px-1 transition-colors">▼</button>
+                  </>
+                )}
+              </div>
               <div className="space-y-2">
-                {items.filter((i) => i.category === cat).map((item) => (
+                {catItems.map((item, itemIdx) => (
                   <div key={item.id} className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-3.5 flex items-center gap-3">
+                    {/* Move up/down */}
+                    <div className="flex flex-col gap-0.5 shrink-0">
+                      <button onClick={() => moveItem(item, 'up')} disabled={itemIdx === 0 || movingId === item.id} className="text-white/20 hover:text-white/60 disabled:opacity-10 text-[10px] leading-none transition-colors">▲</button>
+                      <button onClick={() => moveItem(item, 'down')} disabled={itemIdx === catItems.length - 1 || movingId === item.id} className="text-white/20 hover:text-white/60 disabled:opacity-10 text-[10px] leading-none transition-colors">▼</button>
+                    </div>
                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/[0.07] border border-white/[0.08] flex items-center justify-center shrink-0">
                       {item.imageUrl ? (
                         <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
@@ -199,7 +275,8 @@ function MenuTab({ user }: { user: any }) {
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

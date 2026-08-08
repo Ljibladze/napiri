@@ -76,6 +76,16 @@ function OrderRow({ order, isNew, onDeliver }: { order: Order; isNew: boolean; o
             <span className="text-white/50 text-sm font-medium">{formatPrice(item.price * item.quantity)}</span>
           </div>
         ))}
+        {(order as any).phoneNumber && (
+          <a
+            href={`tel:${(order as any).phoneNumber}`}
+            className="flex items-center gap-2 text-xs text-emerald-300 bg-emerald-400/[0.07] border border-emerald-400/15 rounded-lg px-3 py-2 mt-1 font-bold active:scale-95 transition-all"
+          >
+            <span>📞</span>
+            <span>{(order as any).phoneNumber}</span>
+            <span className="ml-auto text-emerald-400/50">დარეკვა</span>
+          </a>
+        )}
         {order.notes && (
           <p className="text-xs text-amber-300/70 bg-amber-400/[0.07] border border-amber-400/15 rounded-lg px-3 py-2 mt-1">
             📝 {order.notes}

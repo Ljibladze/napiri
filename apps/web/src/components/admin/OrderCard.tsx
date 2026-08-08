@@ -85,6 +85,16 @@ export function OrderCard({ order, onStatusChange, isNew = false }: OrderCardPro
           </div>
         ))}
 
+        {(order as any).phoneNumber && (
+          <a
+            href={`tel:${(order as any).phoneNumber}`}
+            className="flex items-center gap-2 mt-2 text-xs rounded-xl px-3 py-2.5 bg-emerald-400/[0.08] border border-emerald-400/20 text-emerald-300 font-bold active:scale-95 transition-all"
+          >
+            <span>📞</span>
+            <span>{(order as any).phoneNumber}</span>
+            <span className="ml-auto text-emerald-400/60">დარეკვა</span>
+          </a>
+        )}
         {order.notes && (
           <div className="flex items-start gap-2 mt-2 text-xs rounded-xl px-3 py-2.5 bg-amber-400/[0.08] border border-amber-400/20 text-amber-300/85">
             <span>📝</span>

@@ -101,7 +101,7 @@ export default function LoungePage() {
     [cart, selectedRestaurant],
   );
 
-  async function handleSubmitOrder(paymentMethod: PaymentMethod, notes: string, deliveryType: DeliveryType) {
+  async function handleSubmitOrder(paymentMethod: PaymentMethod, notes: string, deliveryType: DeliveryType, phone: string) {
     if (!selectedRestaurant) return;
     const order = await api.orders.create({
       loungeId,
@@ -110,6 +110,7 @@ export default function LoungePage() {
       paymentMethod,
       deliveryType,
       notes: notes || undefined,
+      phoneNumber: phone,
     });
     cart.clearCart();
     setShowCart(false);

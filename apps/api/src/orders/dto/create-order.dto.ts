@@ -62,4 +62,8 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  phoneNumber: string;
 }
