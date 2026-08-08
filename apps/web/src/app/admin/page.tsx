@@ -9,6 +9,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { WaveBackground } from '@/components/layout/WaveBackground';
 import { OrderCard } from '@/components/admin/OrderCard';
 import { STATUS_LABEL } from '@/lib/utils';
+import { DragMenuList } from '@/components/admin/DragMenuList';
 
 type FilterTab = 'all' | OrderStatus;
 type AdminTab = 'orders' | 'menu' | 'couriers' | 'stats';
@@ -88,9 +89,6 @@ function MenuTab({ user }: { user: any }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [renamingCat, setRenamingCat] = useState<string | null>(null);
-  const [renameVal, setRenameVal] = useState('');
-  const [movingId, setMovingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -158,51 +156,7 @@ function MenuTab({ user }: { user: any }) {
     setModal({ type: 'edit', item });
   }
 
-  const sortedItems = [...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  const categories = [...new Set(sortedItems.map((i) => i.category))];
-
-  async function handleRenameCategory(oldName: string) {
-    const catItems = items.filter((i) => i.category === oldName);
-    for (const item of catItems) {
-      const updated = await api.menu.update(item.id, { category: renameVal.trim() });
-      setItems((p) => p.map((i) => i.id === updated.id ? updated : i));
-    }
-    setRenamingCat(null);
-  }
-
-  async function moveItem(item: any, dir: 'up' | 'down') {
-    const catItems = sortedItems.filter((i) => i.category === item.category);
-    const idx = catItems.findIndex((i) => i.id === item.id);
-    const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= catItems.length) return;
-    setMovingId(item.id);
-    try {
-      const catBase = categories.indexOf(item.category) * 1000;
-      const [a, b] = await Promise.all([
-        api.menu.update(item.id, { sortOrder: catBase + swapIdx * 10 }),
-        api.menu.update(catItems[swapIdx].id, { sortOrder: catBase + idx * 10 }),
-      ]);
-      setItems((p) => p.map((i) => i.id === a.id ? a : i.id === b.id ? b : i));
-    } finally { setMovingId(null); }
-  }
-
-  async function moveCategory(cat: string, dir: 'up' | 'down') {
-    const catIdx = categories.indexOf(cat);
-    const swapIdx = dir === 'up' ? catIdx - 1 : catIdx + 1;
-    const swapCat = categories[swapIdx];
-    if (!swapCat) return;
-    const catItems = sortedItems.filter((i) => i.category === cat);
-    const swapItems = sortedItems.filter((i) => i.category === swapCat);
-    const updates = await Promise.all([
-      ...catItems.map((item, i) => api.menu.update(item.id, { sortOrder: swapIdx * 1000 + i * 10 })),
-      ...swapItems.map((item, i) => api.menu.update(item.id, { sortOrder: catIdx * 1000 + i * 10 })),
-    ]);
-    setItems((p) => {
-      let next = [...p];
-      for (const u of updates) next = next.map((i) => i.id === u.id ? u : i);
-      return next;
-    });
-  }
+  const categories = [...new Set(items.map((i) => i.category))];
 
   return (
     <div className="space-y-4">
@@ -237,79 +191,13 @@ function MenuTab({ user }: { user: any }) {
       ) : items.length === 0 ? (
         <div className="text-center py-12 text-white/30 text-sm">მენიუ ცარიელია</div>
       ) : (
-        <div className="space-y-4">
-          {categories.map((cat, catIdx) => {
-            const catItems = sortedItems.filter((i) => i.category === cat);
-            return (
-            <div key={cat}>
-              {/* Category header */}
-              <div className="flex items-center gap-2 mb-2">
-                {renamingCat === cat ? (
-                  <div className="flex items-center gap-1.5 flex-1">
-                    <input
-                      value={renameVal}
-                      onChange={(e) => setRenameVal(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleRenameCategory(cat); if (e.key === 'Escape') setRenamingCat(null); }}
-                      autoFocus
-                      className="flex-1 bg-white/[0.08] border border-ocean-500/40 rounded-lg px-2 py-1 text-white text-xs font-bold focus:outline-none"
-                    />
-                    <button onClick={() => handleRenameCategory(cat)} className="text-xs px-2 py-1 rounded-lg bg-ocean-600/60 text-white font-bold">✓</button>
-                    <button onClick={() => setRenamingCat(null)} className="text-xs px-2 py-1 rounded-lg bg-white/[0.08] text-white/50 font-bold">✕</button>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-white/40 text-xs font-bold uppercase tracking-wider flex-1">{cat}</p>
-                    <button onClick={() => { setRenamingCat(cat); setRenameVal(cat); }}
-                      className="px-2 py-1 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-xs active:scale-95 transition-all">✏️</button>
-                    <button onClick={() => moveCategory(cat, 'up')} disabled={catIdx === 0}
-                      className="px-2 py-1 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-xs active:scale-95 transition-all disabled:opacity-20">▲</button>
-                    <button onClick={() => moveCategory(cat, 'down')} disabled={catIdx === categories.length - 1}
-                      className="px-2 py-1 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-xs active:scale-95 transition-all disabled:opacity-20">▼</button>
-                  </>
-                )}
-              </div>
-              <div className="space-y-2">
-                {catItems.map((item, itemIdx) => (
-                  <div key={item.id} className="bg-white/[0.05] border border-white/[0.08] rounded-2xl p-3.5 flex items-center gap-3">
-                    {/* Move up/down */}
-                    <div className="flex flex-col gap-1 shrink-0">
-                      <button onClick={() => moveItem(item, 'up')} disabled={itemIdx === 0 || movingId === item.id}
-                        className="w-6 h-6 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-[10px] flex items-center justify-center active:scale-95 transition-all disabled:opacity-20">▲</button>
-                      <button onClick={() => moveItem(item, 'down')} disabled={itemIdx === catItems.length - 1 || movingId === item.id}
-                        className="w-6 h-6 rounded-lg bg-white/[0.07] border border-white/[0.10] text-white/60 text-[10px] flex items-center justify-center active:scale-95 transition-all disabled:opacity-20">▼</button>
-                    </div>
-                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/[0.07] border border-white/[0.08] flex items-center justify-center shrink-0">
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-2xl">{item.emoji}</span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold ${item.special ? 'text-amber-300' : 'text-white'}`}>
-                        {item.name}
-                        {item.special && <span className="ml-1.5 text-[10px] bg-amber-400/20 text-amber-300 border border-amber-400/20 rounded-full px-1.5 py-0.5">⭐</span>}
-                      </p>
-                      {item.description && <p className="text-white/35 text-xs truncate">{item.description}</p>}
-                      <p className="text-emerald-300 font-black text-sm mt-0.5">₾{item.price}</p>
-                    </div>
-                    <div className="flex gap-1.5 shrink-0">
-                      <button onClick={() => openEdit(item)}
-                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white/[0.06] border border-white/[0.10] text-white/70 active:scale-95 transition-all">
-                        ✏️
-                      </button>
-                      <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id}
-                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-red-600/30 border border-red-500/20 text-red-300 active:scale-95 transition-all disabled:opacity-50">
-                        {deletingId === item.id ? '...' : '🗑️'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            );
-          })}
-        </div>
+        <DragMenuList
+          items={items}
+          setItems={setItems}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+          deletingId={deletingId}
+        />
       )}
 
       {modal && (
